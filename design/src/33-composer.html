@@ -1,0 +1,53 @@
+<!-- card group="Input" title="Composer" app="matterfast" -->
+<header class="card-h">
+  <h1><code>Composer</code>: writing a message to someone, or to an agent</h1>
+  <p>A growing text field with attachments, completion (@mentions, ~channels, :emoji:, /commands) and send. Options can sit around it: aiddiction's agent mode ("Ask first") and the plan strip, matterfast's priority, schedule and paste-an-image. On Touch it rides on the keyboard, its completion list opens <i>above</i> it, and the tools collapse into a "+" that opens a sheet.</p>
+  <div class="apps"><span class="app">matterfast: chat/render/composer.rs, completion_list.rs, mentions/*</span><span class="app">aiddiction: chat.rs (mode, commands, plan, permissions)</span></div>
+</header>
+<div class="pair">
+  <figure><figcaption><b>Pointer</b>: tools beside the field, completion popover, Enter sends, Shift Enter breaks the line</figcaption>
+    <div class="desk short" style="width:560px">
+      <div class="d-main"><div class="d-content" style="justify-content:flex-end">
+        <div class="d-popover d-menu" style="left:60px;bottom:58px;width:240px">
+          <div class="d-item hover"><span class="avatar sm">LP</span><b>@lena</b> <span class="muted">Lena Petrova</span></div>
+          <div class="d-item"><span class="avatar sm">LK</span><b>@lennart</b> <span class="muted">Lennart Kask</span></div>
+          <div class="d-item"><span class="avatar sm" style="background:var(--secondary-container)">@</span><b>@here</b> <span class="muted">online members</span></div>
+        </div>
+        <div class="d-row" style="gap:6px"><span class="d-ib">{{i:clip}}</span><span class="d-ib">{{i:alert}}</span><span class="d-ib">{{i:bell}}</span>
+          <div class="d-input focus" style="flex:1;height:34px">Thanks @len<span style="border-left:1.5px solid var(--primary);height:16px"></span></div><span class="d-btn primary" style="height:34px">{{i:send}}</span></div>
+      </div></div>
+    </div>
+  </figure>
+  <figure><figcaption><b>Touch</b>: on the keyboard, completion above, "+" sheet for tools</figcaption>
+    <div class="phone" style="width:320px">
+      <div class="m-status"><span>9:41</span><span>▴ ▮</span></div>
+      <div class="m-appbar"><span class="m-ib">{{i:back}}</span><span class="t" style="padding-left:0">development</span></div>
+      <div class="m-content" style="justify-content:flex-end">
+        <div style="background:var(--surface-container);border-radius:16px 16px 0 0">
+          <div class="m-li" style="min-height:48px"><span class="avatar">LP</span><div class="txt"><div class="h" style="font-size:15px"><b>@lena</b> Lena Petrova</div></div></div>
+          <div class="m-li" style="min-height:48px"><span class="avatar">LK</span><div class="txt"><div class="h" style="font-size:15px"><b>@lennart</b> Lennart Kask</div></div></div>
+        </div>
+        <div class="d-row" style="gap:4px;padding:6px 6px 6px 4px;background:var(--surface-container)">
+          <span class="m-ib">{{i:plus}}</span>
+          <div style="flex:1;min-height:44px;border-radius:22px;background:var(--surface-container-highest);display:flex;align-items:center;padding:0 16px;font-size:16px">Thanks @len<span style="border-left:2px solid var(--primary);height:20px;margin-left:1px"></span></div>
+          <span class="m-ib" style="background:var(--primary);color:var(--on-primary)">{{i:send}}</span>
+        </div>
+      </div>
+      <div class="m-keyboard" style="height:200px"><i>q</i><i>w</i><i>e</i><i>r</i><i>t</i><i>y</i><i>u</i><i>i</i><i>o</i><i>p</i><i>a</i><i>s</i><i>d</i><i>f</i><i>g</i><i>h</i><i>j</i><i>k</i><i>l</i><i>⌫</i><i class="w2">?123</i><i class="w6">space</i><i class="w2">↵</i></div>
+    </div>
+  </figure>
+</div>
+<section class="spec">
+<pre class="api">Composer::new(&amp;self.draft)                               // ComposerState: text, attachments, completion
+    .completion(Completion::mentions(&amp;directory).channels().emoji().commands(&amp;commands))
+    .tool(Command::new("attach", "Attach files", IconName::Paperclip, Attach))
+    .tool(Command::new("priority", "Priority", IconName::CircleAlert, SetPriority))
+    .tool(Command::new("schedule", "Schedule…", IconName::Clock, Schedule))
+    .above(plan_strip)                                    // aiddiction's plan / matterfast's reply-to
+    .send(Command::new("send", "Send", IconName::Send, Send))</pre>
+  <ul>
+    <li>Touch: padded by <code>bars.max(keyboard_inset(window))</code>, and the keyboard purpose is <code>Message</code>. Enter inserts a newline and the send button sends. Paste goes through <code>clipboard::pull</code>, and images from the clipboard become attachments.</li>
+    <li>Pointer: Enter sends, Shift Enter breaks the line, ↑ in an empty field edits the last message, and completion is driven by the keyboard.</li>
+    <li>The draft is per channel or conversation and persists, as matterfast <code>rhs/draft.rs</code> already does.</li>
+  </ul>
+</section>

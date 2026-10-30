@@ -1,0 +1,18 @@
+[package]
+name = "gpui-adaptive"
+description = "Intents for gpui-kit applications that run on a desktop and on a phone: one screen, two skins"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+gpui-kit.workspace = true
+gpui-adaptive-colors.workspace = true
+gpui-android-glue.workspace = true
+# Dates for DateField: the type gpui-kit's calendar speaks.
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+
+[dev-dependencies]
+gpui-kit = { workspace = true, features = ["test-support"] }

@@ -1,0 +1,28 @@
+<!-- card group="Foundations" title="Glue: what each intent takes from gpui-android-glue" app="aiddiction" -->
+<header class="card-h">
+  <h1>The glue</h1>
+  <p>The design system depends on <code>gpui-kit</code>, <code>gpui-adaptive-colors</code> and <code>gpui-android-glue</code> (0.4). Every glue function exists on every platform and does the desktop's thing, or nothing, off Android. Intents therefore call it unconditionally, and feature code never touches it.</p>
+</header>
+<section class="spec">
+  <table>
+    <tr><th>Glue</th><th>Used by</th><th>How</th></tr>
+    <tr><td><code>launch::run(app, Config, Assets, start)</code></td><td><code>app-android</code></td><td>The entry point calls <code>adaptive::init(InputMode::Touch, cx)</code> inside <code>start</code>. The desktop's <code>main</code> passes <code>Pointer</code> and calls <code>gpui_android_glue::init</code> itself.</td></tr>
+    <tr><td><code>back::push(handler) → Guard</code></td><td><code>Navigator</code>, <code>Sheet</code>, <code>Panel</code>, <code>Lookup</code>, selection mode</td><td>Each layer that back should close holds a <code>Guard</code> while it is open: a pushed page, an open sheet, an overlay panel, a selection. Dropping the guard removes the layer.</td></tr>
+    <tr><td><code>guard.gesture()</code> + <code>back::preview(page, gesture).under(..).swipe_back(..)</code></td><td><code>Navigator</code> (Touch)</td><td>Predictive back. The page under the top one is built only while a gesture is in progress. <code>swipe_back</code> is on for pages without a sideways scroller, which the intent knows because it owns the page's scroll areas.</td></tr>
+    <tr><td><code>back::open_dialog</code></td><td><code>Confirm</code>, <code>Ask</code>, <code>Form</code> (Pointer on Android tablets)</td><td>Used in place of <code>window.open_dialog</code>, so the back gesture closes the dialog.</td></tr>
+    <tr><td><code>insets::system_bars()</code></td><td><code>Screen</code>, <code>Destinations</code>, <code>Sheet</code></td><td>Top inset pads the app bar. Bottom inset pads the navigation bar, or the sheet when there is no navigation bar.</td></tr>
+    <tr><td><code>keyboard::keyboard_inset(window)</code>, <code>is_up</code></td><td><code>Form</code>, <code>Composer</code>, <code>Lookup</code>, <code>Sheet</code>, <code>Screen</code> (FAB)</td><td>Whatever is typed into pads by <code>bars.max(keyboard)</code>. The navigation bar keeps only the bars' inset and goes under the keyboard. The FAB rides above the keyboard.</td></tr>
+    <tr><td><code>keyboard::follow(id, event, Purpose)</code>, <code>on_tap</code></td><td><code>TextField</code>, <code>Amount</code>, <code>Composer</code>, <code>Lookup</code></td><td>The intent's purpose (text, number, email, search, password) sets the keyboard type and its action key: Next, Done, Search, Send.</td></tr>
+    <tr><td><code>chrome::title_frame(content, Frame)</code></td><td><code>Screen</code> (root)</td><td>The window's title bar on a desktop, a plain strip under the status bar on a phone.</td></tr>
+    <tr><td><code>appearance::{system_mode, change_to}</code></td><td>Appearance settings (shared screen)</td><td>Light or dark plus status bar icons. The colours stay <code>gpui-adaptive-colors</code>.</td></tr>
+    <tr><td><code>clipboard</code>, <code>edit_menu</code></td><td><code>Feed</code>, <code>Review</code>, <code>ItemActions</code></td><td>"Copy text" in the long-press sheet calls <code>clipboard::push</code>. A long press inside text gets the system toolbar from <code>init</code>.</td></tr>
+    <tr><td><code>documents::save</code>, path picker</td><td><code>Command</code> "Export…", <code>Form</code> file field</td><td>The system save dialog or document picker on Android, a file dialog on a desktop.</td></tr>
+    <tr><td><code>open_url</code></td><td><code>Feed</code> links, settings</td><td>Opens links in the system browser.</td></tr>
+  </table>
+  <h2>What the glue lacks and the design system should ask it for</h2>
+  <ul>
+    <li><b>Haptics</b>: a light tick on long press, on swipe-action threshold and on a sheet's detent. Proposed as <code>gpui_android_glue::haptics::tick()</code>, a no-op on a desktop.</li>
+    <li><b>Resume hook</b>: one place to call <code>gpui_adaptive_colors::refresh(cx)</code> when the app comes to the front, since Android does not announce a wallpaper colour change.</li>
+    <li><b>Share sheet</b>: <code>share::text/file</code> for "Share…" commands (matterfast permalinks, money-manager CSV).</li>
+  </ul>
+</section>

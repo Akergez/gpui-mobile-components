@@ -1,0 +1,54 @@
+<!-- card group="Overview" title="Intent design system: overview" app="aiddiction" -->
+<header class="card-h">
+  <h1>Intent design system for aiddiction, matterfast and money-manager</h1>
+  <p>Screens are written once against <b>intents</b>: what the person is doing, not which widget to show. An intent renders twice: in the <b>Pointer</b> skin, which is gpui-kit following its Design Guides, and in the <b>Touch</b> skin, which is Material 3 with motion. The colours of both skins are the existing engine's: <code>gpui-adaptive-colors</code> (a scheme from one seed, or a Zed theme the person wears). Everything a phone needs beyond gpui-mobile is <code>gpui-android-glue</code>.</p>
+  <div class="apps"><span class="app">aiddiction · seed #0b57d0</span><span class="app">matterfast · seed #3b82f6</span><span class="app">money-manager · seed #2fb380</span></div>
+</header>
+
+<section class="spec">
+  <h2>Two axes, decided in two different places</h2>
+  <table>
+    <tr><th>Axis</th><th>Values</th><th>Where it comes from</th><th>What it decides</th></tr>
+    <tr><td><code>InputMode</code></td><td>Pointer · Touch</td><td>The application's entry point: <code>app-android</code> passes Touch and the desktop passes Pointer. It is fixed for the whole run, and tests and previews may pass either.</td><td>The skin: targets, hover vs. ripple, popover vs. sheet, hover bar vs. long press, motion, and which backend a stateful intent builds in <code>new</code>.</td></tr>
+    <tr><td><code>WidthClass</code></td><td>Compact &lt; 44 rem ≤ Medium &lt; 66 rem ≤ Expanded</td><td>Every frame, from <code>viewport_size().width / rem_size()</code>. These are money-manager's <code>shell/layout.rs</code> bounds, measured in rems so they follow zoom.</td><td>Layout: bottom bar, rail or sidebar; one pane, two panes or a third column; table vs. list.</td></tr>
+  </table>
+
+  <h2>Catalogue: 26 intents in 6 groups</h2>
+  <table>
+    <tr><th>Group</th><th>Intent</th><th>Pointer</th><th>Touch</th><th>Who needs it today</th></tr>
+    <tr><td rowspan="5">Structure</td><td><code>Destinations</code></td><td>Sidebar with labels / icon rail</td><td>Navigation bar · rail on Medium</td><td>aiddiction <code>ui/nav.rs</code>, money-manager sidebar + bottom bar</td></tr>
+    <tr><td><code>Screen</code></td><td>Toolbar: title, subtitle, commands</td><td>Top app bar (large on roots), FAB</td><td>aiddiction <code>shell.rs:553</code>, money-manager <code>shell/chrome.rs</code></td></tr>
+    <tr><td><code>Navigator</code></td><td>Columns side by side</td><td>Stack, predictive back, swipe back</td><td>matterfast <code>layout/split.rs</code>, aiddiction <code>shell.rs:517</code></td></tr>
+    <tr><td><code>Panel</code></td><td>Third column or overlay at the right</td><td>Full page or expanding bottom sheet</td><td>matterfast <code>rhs/*</code>, <code>layout/overlay.rs</code></td></tr>
+    <tr><td><code>Dock</code></td><td>Pinned under the sidebar</td><td>Strip under the conversation</td><td>matterfast <code>call_dock/*</code></td></tr>
+    <tr><td rowspan="4">Actions</td><td><code>Command</code></td><td>Button / icon button / menu item + shortcut</td><td>FAB / app-bar icon / sheet row</td><td>everywhere</td></tr>
+    <tr><td><code>ItemActions</code></td><td>Hover bar + right-click menu</td><td>Long press → action sheet, swipe</td><td>matterfast <code>hover_actions.rs</code> / <code>post_sheet.rs</code></td></tr>
+    <tr><td><code>Confirm</code> / <code>Ask</code></td><td>Alert dialog</td><td>M3 dialog (back closes it)</td><td>matterfast <code>dialogs/confirm*</code>, <code>choose.rs</code></td></tr>
+    <tr><td><code>Undo</code></td><td>Notification with Undo</td><td>Snackbar with Undo</td><td>money-manager deletes, matterfast</td></tr>
+    <tr><td rowspan="7">Input</td><td><code>Form</code></td><td>Dialog form, Enter commits</td><td>Bottom sheet or full-screen, above keyboard</td><td>aiddiction <code>ui/forms.rs</code>, matterfast <code>dialogs/forms</code>, money-manager <code>open_form</code></td></tr>
+    <tr><td><code>Choice</code></td><td>Select dropdown</td><td>Sheet with a list</td><td>aiddiction new session, settings</td></tr>
+    <tr><td><code>Lookup</code></td><td>Picker dialog with search</td><td>Full-screen search</td><td>matterfast <code>dialogs/picker.rs</code>, channel browser</td></tr>
+    <tr><td><code>Segments</code> / <code>Toggle</code></td><td>Segmented tabs, checkbox, switch</td><td>Button group, switch</td><td>money-manager expense/income, settings</td></tr>
+    <tr><td><code>DateField</code></td><td>Typed field + calendar popover</td><td>Typed field + modal date picker</td><td>money-manager <code>date_field.rs</code>, matterfast schedule</td></tr>
+    <tr><td><code>Amount</code></td><td>Numeric input, currency suffix</td><td>Numeric keyboard, large figure</td><td>money-manager entry and transfer dialogs</td></tr>
+    <tr><td><code>Composer</code></td><td>Field + tool buttons + send</td><td>Above keyboard, attachment sheet</td><td>aiddiction chat, matterfast composer</td></tr>
+    <tr><td rowspan="6">Content</td><td><code>Collection</code></td><td>Dense rows, hover</td><td>List items, ripple, swipe</td><td>inbox, channels, transactions, projects</td></tr>
+    <tr><td><code>Records</code></td><td>DataTable with sort</td><td>List of rows with key fields</td><td>money-manager <code>transactions/table.rs</code></td></tr>
+    <tr><td><code>Feed</code></td><td>Messages, hover bar</td><td>Messages, long press</td><td>matterfast <code>chat/*</code>, aiddiction <code>chat.rs</code></td></tr>
+    <tr><td><code>Board</code></td><td>Columns of cards, drag</td><td>One column per tab, long-press drag</td><td>aiddiction <code>project.rs</code></td></tr>
+    <tr><td><code>Review</code></td><td>Diff with gutter annotations</td><td>Diff, tap a line → note sheet</td><td>aiddiction <code>diffreview-ui</code></td></tr>
+    <tr><td><code>Chart</code></td><td>Charts in a grid</td><td>One chart per card, swipe</td><td>money-manager <code>charts</code></td></tr>
+    <tr><td rowspan="4">Feedback</td><td><code>Notice</code></td><td>Toast at bottom right</td><td>Snackbar</td><td>all three</td></tr>
+    <tr><td><code>Banner</code></td><td>Strip under the toolbar</td><td>Strip under the app bar</td><td>matterfast call banner, aiddiction offline</td></tr>
+    <tr><td><code>Progress</code> / <code>Empty</code></td><td>Spinner, skeleton, empty text</td><td>M3 loading indicator, illustration</td><td>all three</td></tr>
+    <tr><td><code>Identity</code></td><td>Avatar + presence, badge</td><td>Same, larger</td><td>matterfast <code>kit.rs</code>, aiddiction rail</td></tr>
+  </table>
+
+  <h2>Rules</h2>
+  <ul>
+    <li>Feature code never asks for the platform. The one escape hatch is <code>Form::of(window, cx).is_touch()</code>, and every use of it in a feature gets reviewed.</li>
+    <li>Colour is read from <code>cx.theme()</code>. <code>cx.scheme()</code> roles such as <code>secondary_container</code> and the surface steps add to it but always fall back to the theme, because a worn Zed theme replaces the theme and leaves the scheme behind.</li>
+    <li>Every way of input stays available in both skins: typing a date and picking it, a shortcut and a button, a gesture and a menu.</li>
+    <li>Every scenario runs twice: Pointer at 1280×800 and Touch at 400×800 with swipes. <code>GPUI_KEYBOARD=300</code> pretends a keyboard is up.</li>
+  </ul>
+</section>

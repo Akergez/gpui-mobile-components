@@ -1,0 +1,66 @@
+<!-- card group="Content" title="Collection and Records" app="money-manager" -->
+<header class="card-h">
+  <h1><code>Collection</code>, <code>Records</code></h1>
+  <p><b>Collection</b> is a virtualised list of items with stable ids, optional sections such as Favourites, Channels and Direct messages, or the inbox's Needs you / Working / Done groups, and per-item actions. <b>Records</b> is tabular data that is a sortable <code>DataTable</code> when the window is wide enough and a list of rows with the key fields when it is not. money-manager does exactly this today with its records.</p>
+  <div class="apps"><span class="app">aiddiction: inbox groups, projects</span><span class="app">matterfast: channel sidebar with categories, unread/mention/muted</span><span class="app">money-manager: records, categories, accounts</span></div>
+</header>
+<div class="pair">
+  <figure><figcaption><b>Records, Expanded</b>: DataTable, sortable columns, comment where there is room</figcaption>
+    <div class="desk short" style="width:600px">
+      <div class="d-title">Money Manager<span class="dots"><i></i><i></i><i></i></span></div>
+      <div class="d-main"><div class="d-toolbar"><span class="d-tabs"><span class="on">Expenses</span><span>Income</span></span><span class="grow"></span><span class="d-input" style="width:160px">{{i:search}}<span class="ph">Filter</span></span></div>
+        <div class="d-content" style="padding:0"><table class="d-table">
+          <tr><th>#</th><th>Date {{i:down}}</th><th>Category</th><th>Comment</th><th class="num">Amount</th></tr>
+          <tr><td class="muted">412</td><td>12 Oct</td><td><span class="dot" style="background:#81c784"></span> Groceries</td><td class="muted">Weekly shop</td><td class="num amount neg">−1 240</td></tr>
+          <tr class="sel"><td class="muted">411</td><td>12 Oct</td><td><span class="dot" style="background:#e57373"></span> Pharmacy</td><td></td><td class="num amount neg">−380</td></tr>
+          <tr class="hover"><td class="muted">410</td><td>11 Oct</td><td><span class="dot" style="background:#64b5f6"></span> Transport</td><td class="muted">Metro card</td><td class="num amount neg">−60</td></tr>
+          <tr><td class="muted">409</td><td>10 Oct</td><td><span class="dot" style="background:#ffb74d"></span> Cafe</td><td></td><td class="num amount neg">−450</td></tr>
+        </table></div></div>
+    </div>
+  </figure>
+  <figure><figcaption><b>Records, Compact Touch</b>: day sections, rows with ripple, filter chips</figcaption>
+    <div class="phone short" style="width:300px">
+      <div class="m-status"><span>9:41</span><span>▴ ▮</span></div>
+      <div class="m-appbar"><span class="t">Cash <small>₽ 12 400</small></span><span class="m-ib">{{i:search}}</span></div>
+      <div style="display:flex;gap:8px;padding:0 16px 6px"><span class="m-chip on">{{i:check}} Expenses</span><span class="m-chip">Income</span><span class="m-chip">October {{i:down}}</span></div>
+      <div class="m-content">
+        <div class="m-sub" style="color:var(--on-surface-variant);font-weight:500;font-size:13px">Today</div>
+        <div class="m-li"><div class="lead" style="background:#81c78455">🛒</div><div class="txt"><div class="h">Groceries</div><div class="s">Weekly shop</div></div><div class="amount neg">−1 240</div></div>
+        <div class="m-li pressed" style="overflow:hidden"><span class="m-ripple" style="left:60px;top:-70px"></span><div class="lead" style="background:#e5737355">💊</div><div class="txt"><div class="h">Pharmacy</div></div><div class="amount neg">−380</div></div>
+        <div class="m-sub" style="color:var(--on-surface-variant);font-weight:500;font-size:13px">Yesterday</div>
+        <div class="m-li"><div class="lead" style="background:#64b5f655">🚌</div><div class="txt"><div class="h">Transport</div><div class="s">Metro card</div></div><div class="amount neg">−60</div></div>
+        <div class="m-fab">{{i:plus}}</div>
+      </div>
+    </div>
+  </figure>
+  <figure><figcaption><b>Collection, Touch</b>: channel list with categories and states</figcaption>
+    <div class="phone short" style="width:270px">
+      <div class="m-status"><span>9:41</span><span>▴ ▮</span></div>
+      <div class="m-appbar"><span class="avatar" style="margin-left:12px;border-radius:10px">CP</span><span class="t">Core Platform</span><span class="m-ib">{{i:search}}</span></div>
+      <div class="m-sub">Favourites</div>
+      <div class="m-li" style="min-height:48px"><div class="lead icon">{{i:hash}}</div><div class="txt"><div class="h">development</div></div><span class="avatar sm">LP</span></div>
+      <div class="m-sub">Channels</div>
+      <div class="m-li" style="min-height:48px"><div class="lead icon">{{i:hash}}</div><div class="txt"><div class="h"><b>general</b></div></div><span class="m-count" style="background:var(--error);color:var(--on-error)">1</span></div>
+      <div class="m-li dim" style="min-height:48px"><div class="lead icon">{{i:hash}}</div><div class="txt"><div class="h">releases</div></div>{{i:bell}}</div>
+      <div class="m-sub">Direct messages</div>
+      <div class="m-li" style="min-height:48px"><span class="avatar">MT<span class="presence"></span></span><div class="txt"><div class="h">Mikk Tamm</div></div></div>
+    </div>
+  </figure>
+</div>
+<section class="spec">
+<pre class="api">Collection::new("channels", &amp;self.channels)        // CollectionState over a delegate, keyed by domain id
+    .sections(|channel| channel.category())        // sticky section headers, collapsible on Pointer
+    .row(|channel, row| row.leading(icon).title(name).unread(channel.unread()).trailing(badge))
+    .item_actions(channel_actions)                 // see ItemActions
+    .on_activate(cx.listener(|this, id, _, cx| this.open_channel(id, cx)))
+
+Records::new("records", &amp;self.table)              // TableDelegate + .compact_row(|record| …)
+    .compact_row(|record, row| row.leading(category_icon).title(category).subtitle(comment).trailing(amount))</pre>
+  <table>
+    <tr><th></th><th>Pointer</th><th>Touch</th></tr>
+    <tr><td>Row</td><td>28 px, hover, keyboard ↑↓ Enter, type-ahead</td><td>48–72 dp, ripple from touch point, list item M3 one/two/three-line</td></tr>
+    <tr><td>Scroll</td><td><code>VirtualList</code> / <code>overflow_y_scrollbar</code></td><td>Same virtualisation, <code>lock_scroll_axis</code>, pull-to-refresh when the owner gives <code>.on_refresh</code></td></tr>
+    <tr><td>Records</td><td><code>DataTable</code>: sort on header, column resize</td><td>Rows with section headers by the sort key; sort and filter as chips</td></tr>
+    <tr><td>States</td><td colspan="2">Unread = bold, mention = error badge, muted = dimmed with bell-off, selected = secondary container; loading = skeleton rows; empty = <code>Empty</code></td></tr>
+  </table>
+</section>

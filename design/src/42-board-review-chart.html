@@ -1,0 +1,60 @@
+<!-- card group="Content" title="Board, Review and Chart" app="aiddiction" -->
+<header class="card-h">
+  <h1><code>Board</code>, <code>Review</code>, <code>Chart</code></h1>
+  <p>Three heavier surfaces, each owned by one app but built from the same rules. <b>Board</b>: aiddiction's task board, with To do, In progress and Done. <b>Review</b>: aiddiction's <code>diffreview-ui</code>, where you annotate lines and send the notes to the agent. <b>Chart</b>: money-manager's pie by category, bars by month and the running total.</p>
+</header>
+<div class="pair">
+  <figure><figcaption><b>Board</b>: columns + drag (Pointer) → one column per tab, long-press drag between tabs (Touch)</figcaption>
+    <div style="display:flex;gap:14px;align-items:flex-start">
+      <div class="desk short" style="width:420px;height:260px"><div class="d-content" style="flex-direction:row;gap:10px">
+        <div style="flex:1;display:flex;flex-direction:column;gap:6px"><b style="font-size:12px">To do <span class="muted">2</span></b><div class="tool" style="font-size:12px">Fix sync retry</div><div class="tool" style="font-size:12px">Charts in rems</div></div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:6px"><b style="font-size:12px">In progress <span class="muted">1</span></b><div class="tool" style="font-size:12px;border-color:var(--primary);box-shadow:0 6px 16px rgb(0 0 0 / .18);transform:rotate(-2deg)">{{i:grip}} Intent design system</div></div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:6px"><b style="font-size:12px">Done <span class="muted">4</span></b><div class="tool dim" style="font-size:12px">Back preview</div></div>
+      </div></div>
+      <div class="phone short" style="width:220px;height:300px">
+        <div class="m-status"><span>9:41</span><span></span></div>
+        <div style="display:flex;border-bottom:1px solid var(--outline-variant);font-size:13px;font-weight:500"><span style="flex:1;text-align:center;padding:10px 0" class="muted">To do</span><span style="flex:1;text-align:center;padding:10px 0;color:var(--primary);border-bottom:3px solid var(--primary)">In progress</span><span style="flex:1;text-align:center;padding:10px 0" class="muted">Done</span></div>
+        <div style="padding:12px;display:flex;flex-direction:column;gap:8px"><div class="m-card outlined" style="padding:12px;font-size:14px">Intent design system</div></div>
+      </div>
+    </div>
+  </figure>
+  <figure><figcaption><b>Review</b>: gutter note (Pointer) → tap a line → note sheet (Touch)</figcaption>
+    <div style="display:flex;gap:14px;align-items:flex-start">
+      <div class="desk short" style="width:360px;height:260px;font:12px ui-monospace,monospace">
+        <div class="d-toolbar" style="font-family:Inter,system-ui"><span class="t">src/ui/nav.rs</span><span class="grow"></span><span class="d-btn primary small">Send 1 note</span></div>
+        <div style="padding:6px 0">
+          <div style="padding:1px 10px" class="muted"> 22  fn render_rail(&amp;self…</div>
+          <div style="padding:1px 10px;background:color-mix(in srgb,var(--error) 14%,transparent)">−23      .w(px(60.))</div>
+          <div style="padding:1px 10px;background:color-mix(in srgb,var(--success) 16%,transparent)">+23      .w(rems(3.75))</div>
+          <div style="margin:4px 10px;padding:6px 8px;border-left:3px solid var(--primary);background:var(--surface-container);font-family:Inter,system-ui">Use the token from Scale, not a literal.</div>
+          <div style="padding:1px 10px" class="muted"> 24      .flex_none()</div>
+        </div>
+      </div>
+      <div class="phone short" style="width:220px;height:300px;font-size:12px">
+        <div class="m-status"><span>9:41</span><span></span></div>
+        <div style="font:11px ui-monospace,monospace;padding:6px 0"><div style="padding:3px 8px;background:color-mix(in srgb,var(--success) 16%,transparent)">+23 .w(rems(3.75))</div></div>
+        <div class="m-sheet" style="padding-bottom:10px"><div class="m-handle"></div><div style="padding:0 14px;display:flex;flex-direction:column;gap:8px"><div class="m-tf focus" style="height:48px;font-size:13px;--bg-under:var(--surface-container-low)"><span class="lab">Note on line 23</span>Use the token…</div><span class="m-btn" style="align-self:flex-end;height:34px">Add note</span></div></div>
+      </div>
+    </div>
+  </figure>
+  <figure><figcaption><b>Chart</b>: grid of charts (Pointer) → one chart per card, swipe between months (Touch)</figcaption>
+    <div style="display:flex;gap:14px;align-items:flex-start">
+      <div class="desk short" style="width:300px;height:260px"><div class="d-content" style="flex-direction:row;flex-wrap:wrap;gap:10px">
+        <div style="width:120px;height:120px;border-radius:50%;background:conic-gradient(var(--primary) 0 40%, var(--tertiary) 0 65%, var(--secondary) 0 85%, var(--outline-variant) 0)"></div>
+        <div style="flex:1;display:flex;align-items:flex-end;gap:6px;height:120px"><i style="flex:1;height:40%;background:var(--primary);border-radius:3px 3px 0 0"></i><i style="flex:1;height:70%;background:var(--primary);border-radius:3px 3px 0 0"></i><i style="flex:1;height:55%;background:var(--primary);border-radius:3px 3px 0 0"></i><i style="flex:1;height:90%;background:var(--primary);border-radius:3px 3px 0 0"></i></div>
+      </div></div>
+      <div class="phone short" style="width:200px;height:300px">
+        <div class="m-status"><span>9:41</span><span></span></div>
+        <div style="padding:10px"><div class="m-card" style="display:flex;flex-direction:column;align-items:center;gap:8px"><b style="font-size:13px">October {{i:right}}</b><div style="width:110px;height:110px;border-radius:50%;background:conic-gradient(var(--primary) 0 40%, var(--tertiary) 0 65%, var(--secondary) 0 85%, var(--outline-variant) 0);mask:radial-gradient(circle,transparent 34px,#000 35px)"></div><span class="muted" style="font-size:12px">● ● ○</span></div></div>
+      </div>
+    </div>
+  </figure>
+</div>
+<section class="spec">
+  <table>
+    <tr><th>Surface</th><th>Pointer</th><th>Touch</th><th>Touch mechanics</th></tr>
+    <tr><td><code>Board</code></td><td>Columns side by side, mouse drag with drop indicator, keyboard move (<code>Alt ←/→</code>)</td><td>Tabs, one column per tab, cards; "Move to…" in <code>ItemActions</code></td><td>Tabs swipe sideways (pager), so the card list scrolls vertically with <code>lock_scroll_axis</code>. Long-press drag claims <code>TouchDragEvent</code> and switches tab at the edge.</td></tr>
+    <tr><td><code>Review</code></td><td><code>Diff</code> in a column next to the file tree, click the gutter to annotate</td><td>File list → file page, tap a line → note sheet</td><td>A diff scrolls sideways, so the file page has <code>swipe_back(false)</code> (<code>Route::scrolls_sideways</code>).</td></tr>
+    <tr><td><code>Chart</code></td><td>gpui-kit <code>chart</code>: pie, bar and area in a grid, hover tooltips</td><td>One chart per card, tap a slice for its value, month pager</td><td>Colours <code>chart.1–5</code> from the scheme (mapping.rs), the same in both skins.</td></tr>
+  </table>
+</section>

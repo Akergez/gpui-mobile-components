@@ -1,0 +1,69 @@
+<!-- card group="Structure" title="Destinations" app="aiddiction" -->
+<header class="card-h">
+  <h1><code>Destinations</code>: the app's sections</h1>
+  <p>The app's top-level sections, with a badge for what waits on the person. There can be an optional account or server switcher at the top and pinned items at the bottom, such as Settings. Selecting a destination resets the <code>Navigator</code> to that section's root.</p>
+  <div class="apps"><span class="app">aiddiction: Inbox · Projects · Settings, server switcher</span><span class="app">money-manager: Records · Categories · Charts · Accounts, account switcher</span><span class="app">matterfast: team switcher; the channel list is the root page</span></div>
+</header>
+<div class="pair">
+  <figure><figcaption><b>Pointer · Expanded</b>: icon rail with tooltips (aiddiction) or sidebar with labels</figcaption>
+    <div class="desk short" style="width:520px">
+      <div class="d-title">Aiddiction<span class="dots"><i></i><i></i><i></i></span></div>
+      <div class="d-body">
+        <div class="d-rail">
+          <span class="avatar" style="width:36px;height:36px;border-radius:10px;background:var(--primary);color:var(--on-primary)">H<span class="presence"></span></span>
+          <span style="width:24px;height:1px;background:var(--border);margin:6px 0"></span>
+          <span class="d-ib on">{{i:inbox}}<span class="badge mention" style="position:absolute;right:-4px;top:-4px">2</span></span>
+          <span class="d-ib">{{i:folder}}</span><span class="grow"></span><span class="d-ib">{{i:settings}}</span>
+        </div>
+        <div class="d-side" style="width:180px">
+          <h6>Inbox</h6>
+          <div class="d-item on">{{i:inbox}} Needs you<span class="end badge mention">2</span></div>
+          <div class="d-item">{{i:sync}} Working<span class="end muted">3</span></div>
+          <div class="d-item">{{i:check}} Done</div>
+        </div>
+        <div class="d-main"><div class="d-content muted">Page</div></div>
+      </div>
+    </div>
+  </figure>
+  <figure><figcaption><b>Touch · Compact</b>: M3 navigation bar, badge on the pill</figcaption>
+    <div class="phone short" style="width:300px">
+      <div class="m-status"><span>9:41</span><span>▴ ▮</span></div>
+      <div class="m-appbar large"><div class="row"><span class="grow"></span><span class="m-ib">{{i:search}}</span><span class="avatar" style="margin-right:12px">H<span class="presence"></span></span></div><div class="t">Inbox</div></div>
+      <div class="m-content"><div class="m-sub">Needs you</div>
+        <div class="m-li"><div class="lead">{{i:bot}}</div><div class="txt"><div class="h"><b>Write hello.txt?</b></div><div class="s">Sample repo · Claude</div></div></div>
+        <div class="m-fab ext">{{i:edit}}<span>New chat</span></div>
+      </div>
+      <div class="m-navbar"><div class="m-dest on"><div class="pill">{{i:inbox}}<span class="m-badge">2</span></div>Inbox</div><div class="m-dest"><div class="pill">{{i:folder}}</div>Projects</div><div class="m-dest"><div class="pill">{{i:settings}}</div>Settings</div></div>
+      <div class="m-gesture"></div>
+    </div>
+  </figure>
+  <figure><figcaption><b>Touch · Medium</b>: navigation rail with the FAB on top</figcaption>
+    <div class="phone short" style="width:250px;border-radius:20px">
+      <div class="m-status"><span>9:41</span><span></span></div>
+      <div style="display:flex;flex:1">
+        <div style="width:80px;background:var(--surface-container);display:flex;flex-direction:column;align-items:center;gap:14px;padding-top:12px">
+          <span class="m-fab" style="position:static;width:56px;box-shadow:none">{{i:edit}}</span>
+          <div class="m-dest on"><div class="pill" style="width:56px">{{i:inbox}}<span class="m-badge" style="left:30px">2</span></div>Inbox</div>
+          <div class="m-dest"><div class="pill" style="width:56px">{{i:folder}}</div>Projects</div>
+          <div class="m-dest"><div class="pill" style="width:56px">{{i:settings}}</div>Settings</div>
+        </div>
+        <div class="m-content" style="padding:12px" ><span class="muted">List · detail</span></div>
+      </div>
+    </div>
+  </figure>
+</div>
+<section class="spec">
+<pre class="api">Destinations::new("sections", &amp;self.navigator)
+    .switcher(Switcher::new("server", server.name(), server.status()).on_open(open_servers))
+    .destination(Destination::new(Section::Inbox, "Inbox", IconName::Inbox).badge(waiting))
+    .destination(Destination::new(Section::Projects, "Projects", IconName::Folder))
+    .pinned(Destination::new(Section::Settings, "Settings", IconName::Settings))
+    .primary(Command::new("new-chat", "New chat", IconName::SquarePen, NewChat))</pre>
+  <table>
+    <tr><th></th><th>Pointer</th><th>Touch</th></tr>
+    <tr><td>Compact</td><td>A menu button in the toolbar opens the list as a popover.</td><td>Navigation bar with 3–5 items. More than 5 move to a modal drawer from the app bar's leading icon. The primary command becomes a FAB on the root page.</td></tr>
+    <tr><td>Medium</td><td>Icon rail with tooltips.</td><td>Navigation rail with the primary command as the rail's FAB.</td></tr>
+    <tr><td>Expanded</td><td>Sidebar with labels and shortcuts (<code>Ctrl 1…9</code>).</td><td>Rail, or a standing drawer when the app gives labels.</td></tr>
+  </table>
+  <p class="note">Built on gpui-kit <code>Sidebar</code> (Pointer) and our <code>touch::NavigationBar</code> / <code>NavigationRail</code>. Bottom padding is <code>insets::system_bars().1</code> only, so the bar stays under the keyboard. Replaces aiddiction <code>ui/nav.rs</code> (<code>render_rail</code>, <code>render_tabs</code>, <code>render_fab</code>) and money-manager's sidebar and bottom bar in <code>workspace/render.rs</code>.</p>
+</section>

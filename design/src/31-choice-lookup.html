@@ -1,0 +1,65 @@
+<!-- card group="Input" title="Choice, Lookup, Segments, Toggle" app="aiddiction" -->
+<header class="card-h">
+  <h1><code>Choice</code>, <code>Lookup</code>, <code>Segments</code>, <code>Toggle</code></h1>
+  <p><b>Choice</b> picks one item from a known list: project, agent, theme, category, account. <b>Lookup</b> picks from a directory too large to list, such as people or channels, where the caller answers each query. That is matterfast's <code>dialogs/picker.rs</code> (<code>set_results</code>). <b>Segments</b> covers 2–4 exclusive modes, such as money-manager's expense/income switch. <b>Toggle</b> is on/off.</p>
+  <div class="apps"><span class="app">aiddiction: new session (project, agent), theme, mode</span><span class="app">matterfast: add member, channel browser, DM picker</span><span class="app">money-manager: account, category, expense/income</span></div>
+</header>
+<div class="pair">
+  <figure><figcaption><b>Pointer</b>: <code>Select</code> with search · <code>Segments</code> as tabs · checkbox</figcaption>
+    <div class="desk short" style="width:420px;height:330px">
+      <div class="d-content" style="gap:12px">
+        <div class="d-field"><label>Agent</label><div class="d-input focus">{{i:bot}} Claude Code<span class="grow"></span>{{i:down}}</div></div>
+        <div class="d-popover d-menu" style="left:12px;top:70px;width:300px">
+          <div class="d-input" style="margin:2px 2px 6px">{{i:search}}<span class="ph">Find an agent</span></div>
+          <div class="d-item on">{{i:bot}} Claude Code<span class="end">{{i:check}}</span></div><div class="d-item hover">{{i:bot}} Codex</div><div class="d-item">{{i:bot}} Gemini CLI</div>
+        </div>
+        <div style="margin-top:130px" class="d-row"><span class="d-tabs"><span class="on">Expenses</span><span>Income</span></span><span class="grow"></span><span class="d-check on">{{i:check}}</span> Show hidden</div>
+      </div>
+    </div>
+  </figure>
+  <figure><figcaption><b>Touch</b>: Choice → sheet of rows with the current one marked</figcaption>
+    <div class="phone short" style="width:280px">
+      <div class="m-status"><span>9:41</span><span>▴ ▮</span></div>
+      <div class="m-appbar"><span class="m-ib">{{i:x}}</span><span class="t" style="padding-left:0">New chat</span></div>
+      <div class="m-content" style="padding:12px 16px"><div class="m-tf"><span class="lab">Agent</span>Claude Code<span class="grow"></span>{{i:down}}</div></div>
+      <div class="m-scrim"></div>
+      <div class="m-sheet"><div class="m-handle"></div><h3 style="font-size:18px">Agent</h3>
+        <div class="m-li sel"><div class="lead icon" style="color:inherit">{{i:bot}}</div><div class="txt"><div class="h">Claude Code</div></div>{{i:check}}</div>
+        <div class="m-li"><div class="lead icon">{{i:bot}}</div><div class="txt"><div class="h">Codex</div></div></div>
+        <div class="m-li"><div class="lead icon">{{i:bot}}</div><div class="txt"><div class="h">Gemini CLI</div></div></div>
+      </div>
+    </div>
+  </figure>
+  <figure><figcaption><b>Touch</b>: Lookup → full-screen search with chips of the chosen</figcaption>
+    <div class="phone short" style="width:280px">
+      <div class="m-status"><span>9:41</span><span>▴ ▮</span></div>
+      <div class="m-appbar"><span class="m-ib">{{i:back}}</span><span class="t" style="padding-left:0;color:var(--on-surface)">len<span style="border-left:2px solid var(--primary);margin-left:1px"></span></span><span class="m-ib">{{i:x}}</span></div>
+      <div style="display:flex;gap:6px;padding:0 16px 8px"><span class="m-chip on"><span class="avatar sm">MT</span>Mikk Tamm {{i:x}}</span></div>
+      <div class="m-divider" style="margin:0"></div>
+      <div class="m-li"><span class="avatar" style="width:40px;height:40px">LP<span class="presence"></span></span><div class="txt"><div class="h"><b>Len</b>a Petrova</div><div class="s">@lena · Platform</div></div></div>
+      <div class="m-li"><span class="avatar" style="width:40px;height:40px">LK<span class="presence away"></span></span><div class="txt"><div class="h"><b>Len</b>nart Kask</div><div class="s">@lennart</div></div></div>
+      <div class="m-li"><div class="txt" style="text-align:center"><div class="m-loading" style="margin:0 auto;width:28px;height:28px"></div></div></div>
+    </div>
+  </figure>
+</div>
+<section class="spec">
+<pre class="api">// Choice: retained, controlled. Backend chosen once in new() by InputMode.
+let agent = cx.new(|cx| ChoiceState::new(agents, window, cx).searchable(agents.len() &gt; 7));
+Choice::new(&amp;self.agent).label("Agent").placeholder("No agents")
+cx.subscribe(&amp;self.agent, |this, _, ChoiceEvent::Change(id), cx| …)
+
+// Lookup: the owner answers queries.
+Lookup::open("add-member", "Add people", window, cx)
+    .multiple(true)
+    .on_query(cx.listener(|this, query, _, cx| this.search_people(query, cx)));  // → set_results
+
+Segments::new("kind", self.kind).segment(Kind::Expense, "Expenses").segment(Kind::Income, "Income")
+Toggle::new("hidden", self.show_hidden).label("Show hidden")   // checkbox (Pointer) / switch (Touch)</pre>
+  <table>
+    <tr><th></th><th>Pointer</th><th>Touch</th></tr>
+    <tr><td>Choice</td><td><code>Select</code>, plus a search field from 8 items on</td><td>Sheet of rows; full-screen with search from 8 items on</td></tr>
+    <tr><td>Lookup</td><td>Dialog: search field, results, chosen chips; arrow keys and Enter</td><td>Full-screen search page (a back layer); keyboard <code>Purpose::Search</code></td></tr>
+    <tr><td>Segments</td><td><code>TabBar</code> segmented / <code>ButtonGroup</code></td><td>M3 button group (connected), 48 dp</td></tr>
+    <tr><td>Toggle</td><td><code>Checkbox</code> in forms, <code>Switch</code> for settings that act at once</td><td><code>Switch</code> row, the whole row is the target</td></tr>
+  </table>
+</section>

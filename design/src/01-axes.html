@@ -1,0 +1,72 @@
+<!-- card group="Foundations" title="Input mode and width class" app="money-manager" -->
+<header class="card-h">
+  <h1><code>InputMode</code> × <code>WidthClass</code></h1>
+  <p>Six combinations, three of which are common. A narrow desktop window gets one pane but keeps hover and dropdowns. A tablet or an unfolded phone gets two panes but keeps ripples and sheets. The width class is measured in rems, so zooming the interface on a desktop moves it the same way narrowing the window does.</p>
+</header>
+<div class="pair">
+  <figure><figcaption><b>Pointer · Expanded</b> ≥ 66 rem: sidebar with labels, table, columns</figcaption>
+    <div class="desk short" style="width:520px">
+      <div class="d-title">{{i:wallet}} Money Manager<span class="dots"><i></i><i></i><i></i></span></div>
+      <div class="d-body">
+        <div class="d-side" style="width:150px">
+          <div class="d-item on">{{i:list}} Records</div><div class="d-item">{{i:tag}} Categories</div><div class="d-item">{{i:chart}} Charts</div>
+        </div>
+        <div class="d-main"><div class="d-content">
+          <table class="d-table"><tr><th>Date</th><th>Category</th><th class="num">Amount</th></tr>
+          <tr><td>12 Oct</td><td>Groceries</td><td class="num">−1 240</td></tr><tr class="hover"><td>11 Oct</td><td>Transport</td><td class="num">−60</td></tr><tr><td>10 Oct</td><td>Salary</td><td class="num">+95 000</td></tr></table>
+        </div></div>
+      </div>
+    </div>
+  </figure>
+  <figure><figcaption><b>Pointer · Medium</b> 44–66 rem: icon rail, same table</figcaption>
+    <div class="desk short" style="width:380px">
+      <div class="d-title">{{i:wallet}} Money Manager<span class="dots"><i></i><i></i><i></i></span></div>
+      <div class="d-body">
+        <div class="d-rail"><span class="d-ib on">{{i:list}}</span><span class="d-ib">{{i:tag}}</span><span class="d-ib">{{i:chart}}</span></div>
+        <div class="d-main"><div class="d-content">
+          <table class="d-table"><tr><th>Date</th><th>Category</th><th class="num">Amount</th></tr>
+          <tr><td>12 Oct</td><td>Groceries</td><td class="num">−1 240</td></tr><tr><td>11 Oct</td><td>Transport</td><td class="num">−60</td></tr></table>
+        </div></div>
+      </div>
+    </div>
+  </figure>
+  <figure><figcaption><b>Touch · Compact</b> &lt; 44 rem: list, navigation bar, FAB</figcaption>
+    <div class="phone short" style="width:280px">
+      <div class="m-status"><span>9:41</span><span>▴ ▮</span></div>
+      <div class="m-appbar"><span class="t">Records</span><span class="m-ib">{{i:more-v}}</span></div>
+      <div class="m-content">
+        <div class="m-list">
+          <div class="m-li"><div class="lead">🛒</div><div class="txt"><div class="h">Groceries</div><div class="s">12 Oct</div></div><div class="amount neg">−1 240</div></div>
+          <div class="m-li"><div class="lead">🚌</div><div class="txt"><div class="h">Transport</div><div class="s">11 Oct</div></div><div class="amount neg">−60</div></div>
+          <div class="m-li"><div class="lead">💼</div><div class="txt"><div class="h">Salary</div><div class="s">10 Oct</div></div><div class="amount pos">+95 000</div></div>
+        </div>
+        <div class="m-fab">{{i:plus}}</div>
+      </div>
+      <div class="m-navbar"><div class="m-dest on"><div class="pill">{{i:list}}</div>Records</div><div class="m-dest"><div class="pill">{{i:tag}}</div>Categories</div><div class="m-dest"><div class="pill">{{i:chart}}</div>Charts</div></div>
+      <div class="m-gesture"></div>
+    </div>
+  </figure>
+</div>
+<section class="spec">
+  <h2>API</h2>
+<pre class="api">pub enum InputMode { Pointer, Touch }
+pub enum WidthClass { Compact, Medium, Expanded }
+
+/// What this frame is drawn for. Read in render; never cached.
+pub struct Form { input: InputMode, width: WidthClass }
+impl Form {
+    pub fn of(window: &amp;Window, cx: &amp;App) -&gt; Self;   // width = viewport / rem_size
+    pub fn input(&amp;self) -&gt; InputMode;
+    pub fn width(&amp;self) -&gt; WidthClass;
+    pub fn is_touch(&amp;self) -&gt; bool;
+}
+
+/// Once, after gpui_kit::init and gpui_adaptive_colors::init.
+pub fn init(input: InputMode, cx: &amp;mut App);</pre>
+  <table>
+    <tr><th></th><th>Compact</th><th>Medium</th><th>Expanded</th></tr>
+    <tr><td><b>Pointer</b></td><td>One pane, sidebar collapses into a menu. Narrow desktop window.</td><td>Icon rail, two panes if the route has a companion.</td><td>Sidebar with labels, two or three columns. <i>Today's desktop.</i></td></tr>
+    <tr><td><b>Touch</b></td><td>Navigation bar, stack, FAB, sheets. <i>Today's phone.</i></td><td>Navigation rail, two panes, sheets.</td><td>Rail or drawer, list-detail, sheets become side sheets.</td></tr>
+  </table>
+  <p class="note">Replaces <code>money-manager::shell::layout::Layout</code>, <code>aiddiction::ui::is_phone</code> and matterfast's width checks with one type. The rem bounds (44, 66) come from money-manager, where they were chosen for "how many characters fit".</p>
+</section>

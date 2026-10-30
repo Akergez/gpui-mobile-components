@@ -1,0 +1,43 @@
+<!-- card group="Structure" title="Screen" app="aiddiction" -->
+<header class="card-h">
+  <h1><code>Screen</code>: a page with a title and commands</h1>
+  <p>A page has a title, an optional subtitle, an optional "up", one primary command and secondary commands. Its content is one scroll area, which the Screen owns so it can lock the axis and collapse the app bar. aiddiction already draws this by hand twice, phone and desktop, in <code>shell.rs::render_screen</code> and <code>bar_actions</code>.</p>
+  <div class="apps"><span class="app">aiddiction: chat, project, review, settings pages</span><span class="app">money-manager: records, categories, charts</span><span class="app">matterfast: channel header</span></div>
+</header>
+<div class="pair">
+  <figure><figcaption><b>Pointer</b>: toolbar row, title and subtitle on one line, commands as buttons</figcaption>
+    <div class="desk short" style="width:560px">
+      <div class="d-title">Aiddiction<span class="dots"><i></i><i></i><i></i></span></div>
+      <div class="d-main">
+        <div class="d-toolbar"><span class="t">Sample repo</span><span class="s">~/aiddiction-projects/sample · 3 tasks</span><span class="grow"></span><span class="d-btn">{{i:diff}} Review</span><span class="d-btn primary">{{i:plus}} New task</span><span class="d-ib">{{i:more-h}}</span></div>
+        <div class="d-content"><div class="skel" style="width:60%"></div><div class="skel" style="width:80%"></div><div class="skel" style="width:40%"></div></div>
+      </div>
+    </div>
+  </figure>
+  <figure><figcaption><b>Touch</b>: app bar (title over subtitle), icons, FAB above keyboard and bars</figcaption>
+    <div class="phone short" style="width:300px">
+      <div class="m-status"><span>9:41</span><span>▴ ▮</span></div>
+      <div class="m-appbar scrolled"><span class="m-ib">{{i:back}}</span><span class="t" style="padding-left:0">Sample repo<small>3 tasks</small></span><span class="m-ib">{{i:diff}}</span><span class="m-ib">{{i:more-v}}</span></div>
+      <div class="m-content" style="padding:16px;gap:10px"><div class="skel" style="width:60%;height:14px"></div><div class="skel" style="width:80%;height:14px"></div><div class="skel" style="width:40%;height:14px"></div>
+        <div class="m-fab ext">{{i:plus}}<span>New task</span></div></div>
+      <div class="m-gesture"></div>
+    </div>
+  </figure>
+</div>
+<section class="spec">
+<pre class="api">Screen::new("project", project.name())
+    .subtitle(format!("{} tasks", tasks.len()))
+    .primary(Command::new("new-task", "New task", IconName::Plus, NewTask))
+    .command(Command::new("review", "Review", IconName::FileDiff, OpenReview))
+    .command(Command::new("rename", "Rename…", IconName::Pencil, RenameProject).overflow())
+    .banner(offline.then(|| Banner::warning("Server offline")))
+    .content(board)</pre>
+  <table>
+    <tr><th>Part</th><th>Pointer</th><th>Touch</th></tr>
+    <tr><td>Up</td><td>No up button in Expanded, where the sidebar is visible. In Compact, ← plus <code>Alt ←</code>.</td><td>← on non-root pages. The system back gesture comes from <code>Navigator</code>.</td></tr>
+    <tr><td>Title</td><td>14 px semibold, subtitle beside it in muted text</td><td>Root: large app bar (28) that collapses on scroll. Others: 20 with the subtitle under it.</td></tr>
+    <tr><td>Primary</td><td>Primary button at the end of the toolbar. Enter if the page is a form.</td><td>FAB, extended at rest and shrinking while scrolling down. Bottom offset is <code>bars.max(keyboard)</code>.</td></tr>
+    <tr><td>Secondary</td><td>Buttons with labels while there is room, then icons, then ⋯</td><td>Up to 2 icons, the rest under ⋮ as a menu sheet</td></tr>
+    <tr><td>Content</td><td><code>overflow_y_scrollbar()</code></td><td><code>overflow_y_scroll().lock_scroll_axis()</code>, no nested vertical scroller</td></tr>
+  </table>
+</section>

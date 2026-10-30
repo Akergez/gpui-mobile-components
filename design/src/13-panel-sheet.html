@@ -1,0 +1,60 @@
+<!-- card group="Structure" title="Panel, Sheet and Dock" app="money-manager" -->
+<header class="card-h">
+  <h1><code>Panel</code>, <code>Sheet</code>, <code>Dock</code></h1>
+  <p><b>Panel</b>: secondary content beside the page, such as a thread, the inbox, search results or an inspector. It is a third column or an overlay on Pointer and a pushed page or a tall sheet on Touch. <b>Sheet</b>: a short task or a set of choices over the page. On Touch this is money-manager's <code>bottom_sheet.rs</code>, generalised: it can be stacked, dragged by its handle, closed by the scrim and by back. <b>Dock</b>: a persistent strip for something that outlives the page, matterfast's call dock.</p>
+  <div class="apps"><span class="app">matterfast: thread, inbox (always overlay), search, call dock</span><span class="app">money-manager: forms, account panel</span><span class="app">aiddiction: agent plan, servers</span></div>
+</header>
+<div class="pair">
+  <figure><figcaption><b>Pointer</b>: overlay panel at the right (inbox), with the toolkit's popover and dialog layers above it</figcaption>
+    <div class="desk short" style="width:540px">
+      <div class="d-title">Matterfast<span class="dots"><i></i><i></i><i></i></span></div>
+      <div class="d-body"><div class="d-side" style="width:140px"><div class="d-item on">{{i:hash}} development</div></div><div class="d-main"><div class="d-content muted">Conversation</div></div></div>
+      <div class="d-panel over"><div class="d-toolbar"><span class="t">Inbox</span><span class="grow"></span><span class="d-tabs"><span class="on">Mentions</span><span>Saved</span></span><span class="d-ib">{{i:x}}</span></div>
+        <div class="d-content" style="font-size:12px"><div><b>#general</b> · Sara<br><span class="muted">@you can you look at…</span></div><div><b>#releases</b> · CI<br><span class="muted">Build #2418 passed</span></div></div></div>
+    </div>
+  </figure>
+  <figure><figcaption><b>Touch</b>: sheet over a sheet ("New category…" from the record)</figcaption>
+    <div class="phone short" style="width:300px">
+      <div class="m-status"><span>9:41</span><span>▴ ▮</span></div>
+      <div class="m-content"><div class="m-appbar"><span class="t">Records</span></div></div>
+      <div class="m-scrim"></div>
+      <div class="m-sheet" style="top:120px;filter:brightness(.92)"><div class="m-handle"></div><h3>New expense</h3></div>
+      <div class="m-sheet" style="top:250px;z-index:6"><div class="m-handle"></div><h3>New category</h3>
+        <div style="padding:8px 24px;display:flex;flex-direction:column;gap:14px">
+          <div class="m-tf focus" style="--bg-under:var(--surface-container-low)"><span class="lab">Name</span>Pharmacy</div>
+          <div class="d-row" style="gap:8px"><span class="dot" style="background:#e57373;width:28px;height:28px"></span><span class="dot" style="background:#64b5f6;width:28px;height:28px"></span><span class="dot" style="background:#81c784;width:28px;height:28px;outline:3px solid var(--primary);outline-offset:2px"></span><span class="dot" style="background:#ffb74d;width:28px;height:28px"></span></div>
+          <div class="d-row" style="justify-content:flex-end;gap:8px"><span class="m-btn text">Cancel</span><span class="m-btn">Create</span></div>
+        </div></div>
+    </div>
+  </figure>
+  <figure><figcaption><b>Dock</b>: call controls; under the sidebar (Pointer), under the conversation (Touch)</figcaption>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div class="desk" style="width:240px;height:auto;padding:10px;gap:8px">
+        <div class="d-row"><span class="dot" style="background:var(--success)"></span><b style="font-size:12px">In call · development</b><span class="grow"></span><span class="muted" style="font-size:11px">12:04</span></div>
+        <div class="d-row"><span class="avatar sm">LP</span><span class="avatar sm">MT</span><span class="avatar sm">SO</span><span class="grow"></span><span class="d-ib">🎙</span><span class="d-btn danger small">{{i:phone}} Leave</span></div>
+      </div>
+      <div class="phone" style="width:240px;height:auto;border-width:6px;border-radius:18px;padding:10px 12px;background:var(--surface-container-high)">
+        <div class="d-row" style="gap:8px"><span class="avatar sm">LP</span><span style="font-size:14px;flex:1">development · 3</span><span class="m-ib" style="width:40px;height:40px;background:var(--surface-container-highest)">🎙</span><span class="m-ib" style="width:40px;height:40px;background:var(--error);color:var(--on-error)">{{i:phone}}</span></div>
+      </div>
+    </div>
+  </figure>
+</div>
+<section class="spec">
+<pre class="api">// Panel: a route of its own, so it gets columns / stack / back for free.
+impl Route for MatterRoute { fn companion(&amp;self) -&gt; Option&lt;Self&gt; {
+    match self { Thread(post) =&gt; Some(Channel(post.channel)), Inbox =&gt; None /* overlay */, .. } } }
+Panel::overlay("inbox", inbox_view)       // Pointer: overlay at the right; Touch: full page
+
+// Sheet: short task over the page. Opened by Form, Choice, ItemActions, Command::overflow.
+Sheets::open(view, window, cx);            // Touch: bottom sheet, stackable
+                                           // Pointer: Dialog (task) or Popover (choices)
+Dock::new("call", call_view)               // Expanded: under the sidebar; Compact: under the page</pre>
+  <table>
+    <tr><th>Sheet behaviour (Touch)</th><th>Source</th></tr>
+    <tr><td>Height = content at rest, the full window when pulled up, and the rest of it off screen while dragged down. It settles with a spring and closes past 6 rem.</td><td>money-manager <code>bottom_sheet.rs</code> <code>Motion</code></td></tr>
+    <tr><td>Handle dragged with <code>TouchDragEvent</code>, claimed with <code>prevent_default()</code>. Content scrolls inside with <code>lock_scroll_axis</code>.</td><td>gpui-mobile skill</td></tr>
+    <tr><td>Back, Escape and a tap on the scrim close the top sheet. Each sheet holds a <code>back::Guard</code>.</td><td>glue <code>back</code></td></tr>
+    <tr><td>Padding at the bottom is <code>bars.max(keyboard_inset)</code>, so fields stay above the keyboard.</td><td>glue <code>keyboard</code></td></tr>
+    <tr><td>Drawn over the shell and under the toolkit's dialogs and popups.</td><td>money-manager shell</td></tr>
+  </table>
+</section>

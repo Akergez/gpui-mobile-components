@@ -1,0 +1,53 @@
+<!-- card group="Feedback" title="Notice, Banner, Progress, Empty, Identity" app="matterfast" -->
+<header class="card-h">
+  <h1><code>Notice</code>, <code>Banner</code>, <code>Progress</code>, <code>Empty</code>, <code>Identity</code></h1>
+  <p><b>Notice</b>: a short message that goes away by itself, optionally with one action. <b>Banner</b>: a standing state of the page, such as a call in progress, offline, sign-in needed or a sync conflict. <b>Progress</b>: work that is pending, either determinate or not. <b>Empty</b>: nothing to show yet, plus the one thing to do about it. <b>Identity</b>: a face with presence, an unread badge or a status dot. matterfast's <code>kit.rs</code> exists "so that the same thing looks the same in the sidebar, the feed and the inbox".</p>
+</header>
+<div class="pair">
+  <figure><figcaption><b>Pointer</b>: banner under the toolbar, toast at bottom-right, skeleton</figcaption>
+    <div class="desk short" style="width:520px">
+      <div class="d-title">Matterfast<span class="dots"><i></i><i></i><i></i></span></div>
+      <div class="d-main">
+        <div class="d-toolbar"><span class="t">development</span></div>
+        <div class="d-banner" style="background:var(--success-container);color:var(--on-surface)">{{i:phone}} 3 people are in a call<span class="grow"></span><span class="avatar sm">LP</span><span class="avatar sm">MT</span><span class="d-btn small primary">Join</span></div>
+        <div class="d-content" style="gap:10px"><div class="d-row"><span class="avatar">··</span><div style="flex:1;display:flex;flex-direction:column;gap:5px"><div class="skel" style="width:30%"></div><div class="skel" style="width:85%"></div></div></div><div class="d-row"><span class="avatar">··</span><div style="flex:1;display:flex;flex-direction:column;gap:5px"><div class="skel" style="width:24%"></div><div class="skel" style="width:60%"></div></div></div></div>
+      </div>
+      <div class="d-toast">{{i:check}}<div style="flex:1"><b>Saved for later</b><div class="muted" style="font-size:12px">In your Saved list</div></div><span class="d-btn small ghost">Undo</span></div>
+    </div>
+  </figure>
+  <figure><figcaption><b>Touch</b>: banner, M3 loading indicator, empty state, snackbar</figcaption>
+    <div class="phone short" style="width:300px">
+      <div class="m-status"><span>9:41</span><span>▴ ▮</span></div>
+      <div class="m-appbar"><span class="t">Inbox</span></div>
+      <div class="d-banner" style="background:var(--warning-container);font-size:14px;padding:10px 16px">{{i:alert}} Server offline · retrying<span class="grow"></span><span class="m-loading" style="width:20px;height:20px"></span></div>
+      <div class="m-content" style="align-items:center;justify-content:center;gap:12px;text-align:center;padding:24px">
+        <div style="width:96px;height:96px;border-radius:32px;background:var(--secondary-container);color:var(--on-secondary-container);display:flex;align-items:center;justify-content:center;font-size:44px">{{i:inbox}}</div>
+        <div style="font-size:20px">Nothing needs you</div><div class="muted" style="font-size:14px">Conversations that ask you something appear here.</div>
+        <span class="m-btn tonal">{{i:edit}} New chat</span>
+        <div class="m-snack">Conversation archived<b>Undo</b></div>
+      </div>
+    </div>
+  </figure>
+  <figure><figcaption><b>Identity</b>: avatar + presence, badges, status</figcaption>
+    <div class="desk" style="width:230px;height:auto;padding:14px;gap:12px">
+      <div class="d-row"><span class="avatar">LP<span class="presence"></span></span><span class="avatar">MT<span class="presence away"></span></span><span class="avatar">AI<span class="presence off"></span></span><span class="avatar" style="border-radius:10px;background:var(--primary);color:var(--on-primary)">H<span class="presence"></span></span></div>
+      <div class="d-row"><span class="badge">3</span><span class="badge mention">@ 1</span><span class="badge" style="background:var(--surface-container-highest);color:var(--on-surface)">12</span><span class="dot" style="background:var(--success)"></span><span class="dot" style="background:var(--warning)"></span><span class="dot" style="background:var(--error)"></span></div>
+      <div class="d-row" style="font-size:12px"><span style="background:var(--error);color:var(--on-error);border-radius:4px;padding:0 6px;font-weight:600">URGENT</span><span style="background:var(--tertiary-container);color:var(--on-tertiary-container);border-radius:4px;padding:0 6px">BOT</span></div>
+    </div>
+  </figure>
+</div>
+<section class="spec">
+<pre class="api">Notice::new("Saved for later").detail("In your Saved list").action("Undo", Unsave(id)).push(window, cx);
+Screen::new(..).banner(Banner::new(("call", channel)).tone(Tone::Success).text("3 people are in a call")
+                         .faces(participants).action(Command::new(.., "Join", .., JoinCall)))
+Progress::busy()  ·  Progress::fraction(0.4)  ·  Skeleton::rows(3)
+Empty::new(IconName::Inbox, "Nothing needs you").body("…").action(new_chat)
+Avatar::new(user.id, user.initials()).image(user.picture()).presence(Presence::Online)</pre>
+  <table>
+    <tr><th></th><th>Pointer</th><th>Touch</th></tr>
+    <tr><td>Notice</td><td>gpui-kit <code>Notification</code>, bottom-right, stacks</td><td>Snackbar (inverse surface) above the navigation bar, FAB and keyboard; one at a time</td></tr>
+    <tr><td>Banner</td><td>Strip under the toolbar, tone from <code>success/warning/danger/info</code></td><td>Same strip under the app bar, 48 dp, its action as a text button</td></tr>
+    <tr><td>Busy</td><td><code>Spinner</code> small, inline</td><td>M3 Expressive loading indicator (shape morph) for page loads; spinner inline</td></tr>
+    <tr><td>Badge</td><td colspan="2">Numbers are neutral or primary. Error colour is only for mentions and for something that waits on the person, as the Coding Guides say: "keep Badge variants semantic and scarce".</td></tr>
+  </table>
+</section>

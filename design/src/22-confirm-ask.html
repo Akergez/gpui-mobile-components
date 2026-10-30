@@ -1,0 +1,46 @@
+<!-- card group="Actions" title="Confirm, Ask and Undo" app="aiddiction" -->
+<header class="card-h">
+  <h1><code>Confirm</code>, <code>Ask</code>, <code>Undo</code></h1>
+  <p><b>Confirm</b> asks before something that cannot be undone: leave a channel, archive it, remove a member, delete an account. <b>Ask</b> offers a handful of answers, one of which is chosen. This is matterfast's <code>dialogs/choose.rs</code>, and also aiddiction's permission request when an agent asks to write a file, which appears <i>inline</i> in the feed and not as a modal. <b>Undo</b> replaces confirmation for reversible actions, as the Coding Guides require: "no confirmation dialogs for reversible, low-risk actions".</p>
+  <div class="apps"><span class="app">matterfast: confirm_leave, confirm_archive, confirm_remove_member, choose</span><span class="app">aiddiction: permission requests</span><span class="app">money-manager: delete record → Undo</span></div>
+</header>
+<div class="pair">
+  <figure><figcaption><b>Pointer</b>: alert dialog; Enter = the safe default unless destructive</figcaption>
+    <div class="desk short" style="width:460px">
+      <div class="d-title">Matterfast<span class="dots"><i></i><i></i><i></i></span></div>
+      <div class="d-scrim" style="top:34px"></div>
+      <div class="d-dialog"><h3>Leave #design-crit?</h3><p>You will stop getting its messages. A private channel can only be rejoined by invitation.</p><div class="foot"><span class="d-btn">Cancel</span><span class="d-btn danger">Leave channel</span></div></div>
+    </div>
+  </figure>
+  <figure><figcaption><b>Touch</b>: M3 dialog (a back layer through <code>back::open_dialog</code>)</figcaption>
+    <div class="phone short" style="width:300px">
+      <div class="m-status"><span>9:41</span><span>▴ ▮</span></div>
+      <div class="m-content"></div>
+      <div class="m-scrim"></div>
+      <div class="m-dialog"><h3>Leave #design-crit?</h3><p>You will stop getting its messages. A private channel can only be rejoined by invitation.</p><div class="foot"><span class="m-btn text">Cancel</span><span class="m-btn text" style="color:var(--error)">Leave</span></div></div>
+    </div>
+  </figure>
+  <figure><figcaption><b>Ask inline</b> (both skins), then <b>Undo</b></figcaption>
+    <div style="display:flex;flex-direction:column;gap:14px;width:300px">
+      <div class="ask"><div class="d-row" style="font-size:15px">{{i:alert}} Write hello.txt</div><div class="muted" style="font-size:12.5px">Claude wants to create a file in Sample repo.</div><div class="d-row" style="justify-content:flex-end;gap:8px"><span class="m-btn tonal" style="height:36px">Reject</span><span class="m-btn" style="height:36px">Allow</span></div></div>
+      <div class="phone" style="width:300px;height:110px;border-width:6px;border-radius:18px"><div class="m-snack" style="position:absolute">Record deleted<b>Undo</b></div></div>
+    </div>
+  </figure>
+</div>
+<section class="spec">
+<pre class="api">Confirm::new("leave", "Leave #design-crit?")
+    .body("You will stop getting its messages…")
+    .confirm(Command::new("leave-yes", "Leave channel", IconName::LogOut, LeaveChannel(id)).destructive())
+    .open(window, cx);            // Pointer: AlertDialog · Touch: M3 dialog; both a back layer
+
+Ask::new(("permission", request.id), "Write hello.txt")
+    .answer("allow", "Allow", Allow(request.id)).answer("reject", "Reject", Reject(request.id))
+    .inline()                     // in the feed, not modal (aiddiction); .open() for a dialog (matterfast)
+
+Undo::notice("Record deleted", Restore(record.id)).push(window, cx);</pre>
+  <ul>
+    <li>A confirm button names the action ("Leave channel"), never "OK". The destructive answer is never the Enter default.</li>
+    <li>Ask with more than 3 answers becomes a list: radio rows in the dialog on Pointer, a sheet of rows on Touch.</li>
+    <li>Undo lives 6 s on Touch (snackbar) and until dismissed or replaced on Pointer, and <code>Ctrl Z</code> works while it is shown.</li>
+  </ul>
+</section>

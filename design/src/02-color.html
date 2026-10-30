@@ -1,0 +1,54 @@
+<!-- card group="Foundations" title="Colour: adaptive-colors scheme and gpui-kit theme" app="aiddiction" -->
+<style>
+  .sw { display: grid; grid-template-columns: repeat(4, 150px); gap: 8px; }
+  .sw div { height: 64px; border-radius: 10px; padding: 8px 10px; font-size: 11.5px; display: flex; flex-direction: column; justify-content: space-between; border: 1px solid var(--outline-variant); }
+  .surf { display: flex; gap: 0; margin-top: 10px; border-radius: 10px; overflow: hidden; border: 1px solid var(--outline-variant); width: 618px; }
+  .surf div { flex: 1; height: 56px; font-size: 10.5px; padding: 6px; color: var(--on-surface); }
+</style>
+<header class="card-h">
+  <h1>Colour</h1>
+  <p>The previews use the schemes that <code>adaptive-colors</code> actually produces from each application's fallback seed, with the TonalSpot variant. Use the switch at the top to change the scheme. On a device the seed comes from the system: the accent from the settings portal on Linux, the wallpaper palettes on Android 12+. Both skins read the same roles. Pointer reads them through the gpui-kit theme names, Touch through M3 role names.</p>
+</header>
+<div class="sw">
+  <div style="background:var(--primary);color:var(--on-primary)">primary<span>theme: primary.background</span></div>
+  <div style="background:var(--primary-container);color:var(--on-primary-container)">primary-container<span>FAB, bubble (Touch)</span></div>
+  <div style="background:var(--secondary-container);color:var(--on-secondary-container)">secondary-container<span>sidebar.accent · nav pill</span></div>
+  <div style="background:var(--tertiary-container);color:var(--on-tertiary-container)">tertiary-container<span>avatar fill (scheme only)</span></div>
+  <div style="background:var(--error);color:var(--on-error)">error<span>danger.background</span></div>
+  <div style="background:var(--success);color:var(--on-success)">custom(GREEN)<span>success.*</span></div>
+  <div style="background:var(--warning-container);color:var(--on-surface)">custom(YELLOW)<span>warning.* · ask card</span></div>
+  <div style="background:var(--inverse-surface);color:var(--inverse-on-surface)">inverse-surface<span>snackbar (scheme only)</span></div>
+</div>
+<div class="surf">
+  <div style="background:var(--surface-container-lowest)">lowest</div>
+  <div style="background:var(--surface)">surface<br>background</div>
+  <div style="background:var(--surface-container-low)">low<br>sidebar, title_bar, sheet</div>
+  <div style="background:var(--surface-container)">container<br>popover, nav bar</div>
+  <div style="background:var(--surface-container-high)">high<br>muted, M3 dialog</div>
+  <div style="background:var(--surface-container-highest)">highest<br>accent, skeleton</div>
+</div>
+<section class="spec">
+  <h2>Where each skin reads colour</h2>
+  <table>
+    <tr><th>Need</th><th>Pointer (gpui-kit theme)</th><th>Touch (M3 role)</th><th>When a Zed theme is worn</th></tr>
+    <tr><td>Page, text</td><td><code>background</code>, <code>foreground</code></td><td>surface, on-surface (= the same values)</td><td>The theme's own values. Correct.</td></tr>
+    <tr><td>Selected destination</td><td><code>sidebar.accent.*</code></td><td>secondary-container</td><td>Touch falls back to <code>sidebar.accent</code>.</td></tr>
+    <tr><td>FAB, own bubble</td><td>—</td><td>primary-container</td><td>Fallback: <code>primary</code> at 16% over <code>background</code>.</td></tr>
+    <tr><td>Bars, sheets</td><td><code>title_bar</code>, <code>sidebar</code>, <code>popover</code></td><td>surface-container-low / container</td><td>Fallback: <code>sidebar</code> / <code>popover</code>.</td></tr>
+    <tr><td>Hover / press</td><td><code>list.hover</code>, <code>*.hover</code> (8%)</td><td>Ripple of on-surface at 12%, drawn by us</td><td>Ripple uses <code>foreground</code>.</td></tr>
+    <tr><td>Snackbar</td><td><code>popover</code> (toast)</td><td>inverse-surface</td><td>Fallback: <code>foreground</code> as fill, <code>background</code> as text.</td></tr>
+  </table>
+<pre class="api">/// The colours of the touch skin: the scheme's roles while the scheme is worn,
+/// otherwise the nearest the active theme has. Never paint from cx.scheme() directly.
+pub trait TouchColors { fn touch(&amp;self) -&gt; TouchPalette; }
+impl TouchColors for App {
+    fn touch(&amp;self) -&gt; TouchPalette {
+        let theme = self.theme();
+        match AdaptiveColors::global(self).worn(theme.mode) {
+            None =&gt; TouchPalette::from_scheme(self.scheme()),
+            Some(_) =&gt; TouchPalette::from_theme(theme),
+        }
+    }
+}</pre>
+  <p class="note">The design system does not add a colour engine. It uses <code>gpui_adaptive_colors::init</code>, <code>set_source</code>, <code>wear</code>/<code>wear_scheme</code>, and on Android <code>refresh(cx)</code> on resume. Light or dark stays <code>Theme::change</code> through <code>gpui_android_glue::appearance::change_to</code>, which also sets the status bar's icons.</p>
+</section>

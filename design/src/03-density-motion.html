@@ -1,0 +1,41 @@
+<!-- card group="Foundations" title="Density, shape, type and motion" app="matterfast" -->
+<header class="card-h">
+  <h1>Density, shape, type and motion</h1>
+  <p>Both skins take every length from the gpui-kit rem, which is the theme's <code>font_size</code> and therefore the zoom. Each skin applies its own scale on top of the rem. Shape, type and motion scales that the gpui-kit theme cannot store live in the design system's own <code>Global</code>. The Coding Guides warn that <code>apply_semantic_tokens</code> does not keep custom spacing or elevation scales.</p>
+</header>
+<div class="pair">
+  <figure><figcaption><b>Pointer</b>: 28 px controls, 6 px radius, hover and focus ring</figcaption>
+    <div class="desk short" style="width:420px;height:230px"><div class="d-content" style="gap:12px">
+      <div class="d-row"><span class="d-btn primary">Save</span><span class="d-btn">Cancel</span><span class="d-btn ghost">{{i:more-h}}</span><span class="d-ib hover">{{i:edit}}</span></div>
+      <div class="d-input focus" style="width:260px">Search channels<span class="grow"></span><span class="d-kbd">Ctrl K</span></div>
+      <div class="d-item hover" style="width:240px"># development<span class="end badge">3</span></div>
+      <div class="note">Text 13 px · rows 28 px · targets ≥ 24 px · motion 120–160 ms fades</div>
+    </div></div>
+  </figure>
+  <figure><figcaption><b>Touch</b>: 40–56 px controls, full and large radii, ripple</figcaption>
+    <div class="phone short" style="width:300px;height:330px"><div class="m-content" style="padding:16px;gap:14px">
+      <div class="d-row" style="gap:8px"><span class="m-btn">Save</span><span class="m-btn text">Cancel</span></div>
+      <div class="m-search" style="margin:0">{{i:search}} Search channels</div>
+      <div class="m-li pressed" style="margin:0 -16px;overflow:hidden"><span class="m-ripple" style="left:40px;top:-60px"></span><div class="lead icon">{{i:hash}}</div><div class="txt"><div class="h">development</div></div><span class="m-count">3</span></div>
+      <div class="note">Text 16 px · rows 56 px · targets ≥ 48 dp · springs</div>
+    </div></div>
+  </figure>
+</div>
+<section class="spec">
+  <table>
+    <tr><th>Token</th><th>Pointer</th><th>Touch</th></tr>
+    <tr><td>Control height</td><td><code>h_7</code> (28) · small 24</td><td>40 (button), 48 (icon target), 56 (field, FAB, list)</td></tr>
+    <tr><td>Radius</td><td>theme <code>radius</code> (6), dialogs 10</td><td>full (buttons, chips 8), 12 cards, 16 FAB, 28 sheets and dialogs</td></tr>
+    <tr><td>Type</td><td>13 body · 12 meta · 14–15 titles</td><td>M3: body-large 16, title-large 22, headline 24–28, label 14/12</td></tr>
+    <tr><td>Interaction</td><td><code>hover</code>/<code>active</code>/<code>focus_visible</code> modifiers, list.hover 8%</td><td>Ripple from the touch point (on-surface 12%), pressed state layer, no hover</td></tr>
+    <tr><td>Motion</td><td>Fade or slide 120–160 ms, honouring reduced motion</td><td>Springs (stiffness and damping from M3 Expressive "fast/default spatial"), shared-axis page push, sheet settle, FAB morph</td></tr>
+    <tr><td>Insets</td><td>None. Title bar from <code>gpui_android_glue::chrome::title_frame</code>.</td><td><code>insets::system_bars()</code>, <code>keyboard::keyboard_inset(window)</code>, read every frame and never animated by us</td></tr>
+  </table>
+<pre class="api">pub struct Scale { radius: Radii, type_: TypeScale, motion: Motion, density: Density }
+impl Scale {
+    pub fn pointer() -&gt; Self;   // from gpui-kit's own semantic tokens
+    pub fn touch() -&gt; Self;     // M3 values in rems at 16 px = 1 rem
+}
+impl Global for Scale {}           // set by adaptive::init(input)</pre>
+  <p class="note">Motion runs on the window's frame clock (<code>with_animation</code>, or a <code>Motion</code> stepped per frame the way money-manager's <code>bottom_sheet.rs</code> does it), so what a sheet holds keeps its state while the sheet moves.</p>
+</section>

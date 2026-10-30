@@ -1,0 +1,59 @@
+<!-- card group="Structure" title="Navigator" app="matterfast" -->
+<header class="card-h">
+  <h1><code>Navigator</code>: columns when there is room, a stack when not</h1>
+  <p>The app gives routes. Each route may name a <i>companion</i>, the route shown beside it when there is room: a channel's companion is the channel list, a record's is the records. With room, the Navigator lays out the companion chain as columns. Without room, it shows the top of the stack with a push transition, predictive back and swipe back. matterfast's <code>layout/split.rs</code> ("on a phone the list is the main screen, as it is in Telegram") and aiddiction's <code>shell.rs</code> back handling become this one intent.</p>
+  <div class="apps"><span class="app">matterfast: channels → conversation → thread</span><span class="app">aiddiction: inbox → chat → review</span><span class="app">money-manager: records → record</span></div>
+</header>
+<div class="pair">
+  <figure><figcaption><b>Expanded</b>: channel list | conversation | thread (a third column when ≥ 66 rem + panel)</figcaption>
+    <div class="desk" style="width:640px;height:340px">
+      <div class="d-title">Matterfast<span class="d-input" style="height:22px;margin:0 auto;width:220px;font-weight:400">{{i:search}}<span class="ph">Jump to…</span><span class="grow"></span><span class="d-kbd">Ctrl K</span></span><span class="dots"><i></i><i></i><i></i></span></div>
+      <div class="d-body">
+        <div class="d-side" style="width:160px"><h6>Channels</h6><div class="d-item on">{{i:hash}} development</div><div class="d-item">{{i:hash}} design-crit</div><div class="d-item"><b>{{i:hash}} general</b><span class="end badge mention">1</span></div></div>
+        <div class="d-main"><div class="d-toolbar"><span class="t">development</span></div><div class="d-content" style="gap:10px">
+          <div class="d-row" style="align-items:flex-start"><span class="avatar">LP<span class="presence"></span></span><div><b>Lena Petrova</b> <span class="muted" style="font-size:11px">12:00</span><br>Pushed the reconnect fix.<div class="muted" style="font-size:12px;margin-top:2px">{{i:reply}} 2 replies</div></div></div>
+        </div></div>
+        <div class="d-panel" style="width:190px"><div class="d-toolbar"><span class="t">Thread</span><span class="grow"></span><span class="d-ib">{{i:x}}</span></div><div class="d-content muted" style="font-size:12px">Mikk: That explains the hangs…</div></div>
+      </div>
+    </div>
+  </figure>
+  <figure><figcaption><b>Compact</b>: conversation over the list, back gesture partway</figcaption>
+    <div class="phone short" style="width:300px">
+      <div class="m-status"><span>9:41</span><span>▴ ▮</span></div>
+      <div class="m-content" style="background:var(--surface-container)">
+        <div style="position:absolute;inset:0;opacity:.85">
+          <div class="m-appbar"><span class="t">Core Platform</span></div>
+          <div class="m-li"><div class="lead icon">{{i:hash}}</div><div class="txt"><div class="h">development</div></div></div>
+          <div class="m-li"><div class="lead icon">{{i:hash}}</div><div class="txt"><div class="h"><b>general</b></div></div><span class="m-count">1</span></div>
+        </div>
+        <div style="position:absolute;top:0;bottom:0;left:70px;right:-70px;background:var(--surface);box-shadow:-6px 0 18px rgb(0 0 0 / .2);border-radius:20px 0 0 20px;transform:scale(.96);transform-origin:left center">
+          <div class="m-appbar"><span class="m-ib">{{i:back}}</span><span class="t" style="padding-left:0">development</span></div>
+          <div style="padding:8px 16px;display:flex;gap:10px"><span class="avatar">LP</span><div style="font-size:14px"><b>Lena Petrova</b><br>Pushed the reconnect fix.</div></div>
+        </div>
+        <div style="position:absolute;left:8px;top:50%;width:28px;height:28px;border-radius:50%;background:var(--surface-container-highest);display:flex;align-items:center;justify-content:center">{{i:back}}</div>
+      </div>
+      <div class="m-gesture"></div>
+    </div>
+  </figure>
+</div>
+<section class="spec">
+<pre class="api">pub trait Route: Clone + PartialEq + 'static {
+    /// What is shown beside this route when there is room for it.
+    fn companion(&amp;self) -&gt; Option&lt;Self&gt;;
+    /// A page that scrolls sideways gives up swipe-back (glue's rule).
+    fn scrolls_sideways(&amp;self) -&gt; bool { false }
+}
+pub struct NavigatorState&lt;R: Route&gt; { stack: Vec&lt;R&gt;, back: Option&lt;back::Guard&gt; }
+impl&lt;R: Route&gt; NavigatorState&lt;R&gt; {
+    pub fn push(&amp;mut self, route: R, cx: &amp;mut Context&lt;Self&gt;);
+    pub fn replace_root(&amp;mut self, route: R, cx: &amp;mut Context&lt;Self&gt;);   // Destinations
+    pub fn back(&amp;mut self, cx: &amp;mut Context&lt;Self&gt;) -&gt; bool;
+}
+Navigator::new(&amp;self.navigator, |route, window, cx| render_route(route, window, cx))</pre>
+  <ul>
+    <li><b>Columns</b>: how many fit is computed from each route's minimum width in rems. Divider widths can be dragged on Pointer and are persisted per machine, as matterfast's <code>layout/widths.rs</code> does today.</li>
+    <li><b>Stack, Touch</b>: shared-axis push (spring), <code>back::push</code> guard per pushed page, <code>back::preview(top, gesture).under(previous).swipe_back(!route.scrolls_sideways())</code>.</li>
+    <li><b>Stack, Pointer</b> (narrow desktop window): a 120 ms fade, <code>Alt ←</code> and mouse button 4 go back.</li>
+    <li>The state is a plain <code>Vec&lt;R&gt;</code>, so a UI scenario can start on any route, like matterfast's <code>script.rs</code>.</li>
+  </ul>
+</section>

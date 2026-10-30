@@ -1,0 +1,36 @@
+<!-- card group="Foundations" title="Architecture and migration" app="aiddiction" -->
+<header class="card-h">
+  <h1>How it fits together</h1>
+  <p>There is one new crate, <code>gpui-adaptive</code> (in this repository), between the toolkit and the apps. It adds no new engine: colours stay <code>gpui-adaptive-colors</code>, Android stays <code>gpui-android-glue</code>, and widgets stay gpui-kit wherever gpui-kit already has the behaviour.</p>
+</header>
+<section class="spec">
+<pre class="api">aiddiction · matterfast · money-manager          feature code: Screen, Collection, Form, Command … only
+        │
+gpui-adaptive  (this repo)                         intents; each module = pub API + private pointer.rs / touch.rs
+  ├─ form.rs        InputMode, WidthClass, Form::of
+  ├─ scale.rs       radii, type, motion, density per skin (own Global)
+  ├─ colors.rs      TouchPalette: cx.scheme() while the scheme is worn, else from cx.theme()
+  ├─ motion/        springs, ripple element, shared-axis transition
+  ├─ navigator/ screen/ destinations/ sheet/ panel/ dock/
+  ├─ command/ item_actions/ confirm/
+  ├─ form/ choice/ lookup/ date_field/ amount/ composer/
+  └─ collection/ records/ feed/ board/ notice/ banner/ empty/ identity/
+        │                  │                         │
+gpui-kit 0.7      gpui-adaptive-colors       gpui-android-glue 0.4 (+ gpui-mobile rev 9075e3a)</pre>
+  <h2>Initialisation, the same in all three apps</h2>
+<pre class="api">gpui_kit::init(cx);
+gpui_adaptive_colors::init(Options::new(Color::from_u32(SEED)).remembered(remembered), cx);
+gpui_android_glue::init(cx);                 // run() does it on Android
+gpui_adaptive::init(input, cx);              // Touch from android_main's start, Pointer from main()</pre>
+  <h2>Migration: replace each app's hand-made adaptive code, one intent at a time</h2>
+  <table>
+    <tr><th>Step</th><th>aiddiction</th><th>matterfast</th><th>money-manager</th></tr>
+    <tr><td>1. <code>Form::of</code></td><td><code>ui::is_phone</code></td><td>width checks in <code>shell/window_size.rs</code></td><td><code>shell/layout.rs</code> (its bounds become the shared ones)</td></tr>
+    <tr><td>2. <code>Sheet</code></td><td>forms on phone</td><td><code>post_sheet.rs</code></td><td><code>bottom_sheet.rs</code> becomes the implementation</td></tr>
+    <tr><td>3. <code>Screen</code> + <code>Destinations</code></td><td><code>shell.rs</code> render_screen, <code>nav.rs</code></td><td>chrome, sidebar header</td><td><code>shell/chrome.rs</code>, <code>workspace/render.rs</code></td></tr>
+    <tr><td>4. <code>Navigator</code></td><td>Page stack + back preview</td><td><code>layout/split.rs</code>, <code>overlay.rs</code></td><td>record page</td></tr>
+    <tr><td>5. <code>Form</code>, <code>Choice</code>, <code>DateField</code></td><td><code>ui/forms.rs</code>, new_session</td><td><code>dialogs/forms</code>, <code>choose.rs</code>, <code>picker.rs</code></td><td><code>entry_dialog.rs</code>, <code>date_field.rs</code></td></tr>
+    <tr><td>6. Content</td><td>inbox, chat, board</td><td>sidebar, feed, composer</td><td>records, charts</td></tr>
+  </table>
+  <p class="note">Each step is checked by the app's existing UI scenarios (<code>script.rs</code> in all three), run at 1280×800 Pointer and 400×800 Touch with swipes, before and after.</p>
+</section>

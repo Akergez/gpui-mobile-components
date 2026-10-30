@@ -1,0 +1,53 @@
+<!-- card group="Input" title="Form" app="money-manager" -->
+<header class="card-h">
+  <h1><code>Form</code>: fields, validation, one commitment</h1>
+  <p>A titled set of fields with Cancel and one commitment. All three apps have one: aiddiction's <code>ui/forms.rs</code> (a dialog padded by the keyboard), matterfast's <code>dialogs/forms/*</code> (Mattermost interactive dialogs built from a spec) and money-manager's <code>open_form</code>, which on a phone already opens every form in a bottom sheet. Each field declares its <code>Purpose</code>, and that purpose sets the phone's keyboard and its action key.</p>
+</header>
+<div class="pair">
+  <figure><figcaption><b>Pointer</b>: dialog, labels above, Enter commits, errors under fields</figcaption>
+    <div class="desk" style="width:480px;height:420px">
+      <div class="d-title">Money Manager<span class="dots"><i></i><i></i><i></i></span></div>
+      <div class="d-scrim" style="top:34px"></div>
+      <div class="d-dialog" style="width:380px">
+        <h3>New expense</h3>
+        <div class="d-tabs" style="align-self:flex-start"><span class="on">Expense</span><span>Income</span><span>Transfer</span></div>
+        <div class="d-row" style="gap:10px"><div class="d-field" style="flex:1"><label>Amount</label><div class="d-input focus"><b>1 240</b><span class="grow"></span><span class="muted">₽</span></div></div><div class="d-field" style="flex:1"><label>Date</label><div class="d-input">12.10.2026<span class="grow"></span>{{i:calendar}}</div></div></div>
+        <div class="d-field"><label>Category</label><div class="d-input"><span class="dot" style="background:#81c784"></span>Groceries<span class="grow"></span>{{i:down}}</div></div>
+        <div class="d-field"><label>Comment</label><div class="d-input"><span class="ph">Optional</span></div></div>
+        <div class="foot"><span class="d-btn">Cancel</span><span class="d-btn primary">Add expense <span class="d-kbd" style="color:inherit;border-color:currentColor;opacity:.7">↵</span></span></div>
+      </div>
+    </div>
+  </figure>
+  <figure><figcaption><b>Touch</b>: bottom sheet above the keyboard; the action key is "Next"</figcaption>
+    <div class="phone" style="width:320px">
+      <div class="m-status"><span>9:41</span><span>▴ ▮</span></div>
+      <div class="m-content"></div>
+      <div class="m-scrim" style="bottom:230px"></div>
+      <div class="m-sheet" style="bottom:230px;padding-bottom:12px;--bg-under:var(--surface-container-low)"><div class="m-handle"></div>
+        <div class="d-row" style="padding:0 16px 0 24px"><h3 style="margin:0;flex:1">New expense</h3><span class="m-btn" style="height:36px">Add</span></div>
+        <div style="padding:14px 16px 0;display:flex;flex-direction:column;gap:16px">
+          <div class="m-bgroup"><span class="on">Expense</span><span>Income</span><span>Transfer</span></div>
+          <div class="m-tf focus" style="font-size:22px"><span class="lab">Amount</span><b>1 240</b><span class="grow"></span><span class="muted" style="font-size:16px">₽</span></div>
+          <div class="m-tf"><span class="lab">Category</span><span class="dot" style="background:#81c784"></span>Groceries<span class="grow"></span>{{i:down}}</div>
+        </div>
+      </div>
+      <div class="m-keyboard"><i>1</i><i>2</i><i>3</i><i>4</i><i>5</i><i>6</i><i>7</i><i>8</i><i>9</i><i>0</i><i class="w2">,</i><i class="w6">space</i><i class="w2" style="background:var(--primary);color:var(--on-primary)">Next</i></div>
+    </div>
+  </figure>
+</div>
+<section class="spec">
+<pre class="api">Form::new("new-expense", "New expense")
+    .field(Field::amount("amount", &amp;self.amount).label("Amount").currency(account.currency()))
+    .field(Field::date("date", &amp;self.date).label("Date"))
+    .field(Field::choice("category", &amp;self.category).label("Category"))
+    .field(Field::text("comment", &amp;self.comment).label("Comment").optional())
+    .commit(Command::new("add", "Add expense", IconName::Check, AddRecord))
+    .open(window, cx);</pre>
+  <table>
+    <tr><th></th><th>Pointer</th><th>Touch · Compact</th><th>Touch · Medium+</th></tr>
+    <tr><td>Container</td><td>gpui-kit <code>Dialog</code> with <code>v_form</code></td><td>Bottom sheet (≤ 4 short fields) or full-screen dialog with ✕ and Save</td><td>Centred M3 dialog</td></tr>
+    <tr><td>Keyboard</td><td>Tab/Shift-Tab, Enter commits, Escape cancels</td><td colspan="2"><code>keyboard::follow(id, event, Purpose)</code>: Next moves on, Done on the last field commits. The sheet pads by <code>bars.max(keyboard_inset)</code>.</td></tr>
+    <tr><td>Errors</td><td colspan="3">Under the field. On commit, focus and scroll go to the first error. The commitment stays enabled and explains what is missing instead of going dead.</td></tr>
+    <tr><td>Back</td><td>—</td><td colspan="2">Closes the form. If something was typed, the first back asks "Discard?" (Confirm).</td></tr>
+  </table>
+</section>

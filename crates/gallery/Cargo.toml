@@ -1,0 +1,16 @@
+[package]
+name = "gallery"
+description = "Every intent of gpui-adaptive in both skins"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+publish = false
+
+[dependencies]
+gpui-adaptive.workspace = true
+gpui-kit.workspace = true
+gpui-adaptive-colors.workspace = true
+gpui-android-glue.workspace = true
+chrono = { version = "0.4", default-features = false, features = ["clock"] }

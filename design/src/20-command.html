@@ -1,0 +1,54 @@
+<!-- card group="Actions" title="Command" app="money-manager" -->
+<header class="card-h">
+  <h1><code>Command</code>: one logical action, many entry points</h1>
+  <p>A command has a label, an icon, a GPUI <code>Action</code>, an enabled state, an optional shortcut and a role (primary, normal, destructive, overflow). The same command value renders as a toolbar button, a FAB, a menu item, an action sheet row or a key binding. This follows the Coding Guides rule "model one logical desktop command once". money-manager's More menu (Import CSV… <code>Ctrl Shift I</code>, Export CSV…, Sync) is the reference case.</p>
+</header>
+<div class="pair">
+  <figure><figcaption><b>Pointer</b>: buttons that collapse to icons, then ⋯ menu with shortcuts</figcaption>
+    <div class="desk short" style="width:520px">
+      <div class="d-title">Money Manager<span class="dots"><i></i><i></i><i></i></span></div>
+      <div class="d-main"><div class="d-toolbar"><span class="d-btn">{{i:wallet}} Cash ₽ <b>12 400</b> {{i:down}}</span><span class="grow"></span><span class="d-btn">{{i:sync}} Sync</span><span class="d-btn primary">{{i:plus}} New record</span><span class="d-ib hover">{{i:more-h}}</span></div>
+        <div class="d-content"></div></div>
+      <div class="d-popover d-menu" style="right:10px;top:78px;width:220px">
+        <div class="d-item">Import CSV…<span class="end d-kbd">Ctrl ⇧ I</span></div>
+        <div class="d-item hover">Export CSV…<span class="end d-kbd">Ctrl ⇧ E</span></div>
+        <div class="sep"></div><div class="d-item">New account…</div><div class="d-item">Settings…<span class="end d-kbd">Ctrl ,</span></div>
+      </div>
+    </div>
+  </figure>
+  <figure><figcaption><b>Touch</b>: FAB for primary, ⋮ opens a menu sheet (no shortcuts shown)</figcaption>
+    <div class="phone short" style="width:300px">
+      <div class="m-status"><span>9:41</span><span>▴ ▮</span></div>
+      <div class="m-appbar"><span class="t">Cash <small>₽ 12 400</small></span><span class="m-ib">{{i:sync}}</span><span class="m-ib on">{{i:more-v}}</span></div>
+      <div class="m-content"><div class="m-fab">{{i:plus}}</div></div>
+      <div class="m-scrim"></div>
+      <div class="m-sheet"><div class="m-handle"></div>
+        <div class="m-li"><div class="lead icon">{{i:down}}</div><div class="txt"><div class="h">Import CSV…</div></div></div>
+        <div class="m-li pressed"><div class="lead icon">{{i:up}}</div><div class="txt"><div class="h">Export CSV…</div></div></div>
+        <div class="m-divider"></div>
+        <div class="m-li"><div class="lead icon">{{i:wallet}}</div><div class="txt"><div class="h">New account…</div></div></div>
+        <div class="m-li"><div class="lead icon">{{i:settings}}</div><div class="txt"><div class="h">Settings</div></div></div>
+      </div>
+    </div>
+  </figure>
+</div>
+<section class="spec">
+<pre class="api">#[derive(Clone)]
+pub struct Command { id: ElementId, label: SharedString, icon: IconName,
+                     action: Box&lt;dyn Action&gt;, role: CommandRole, disabled: bool }
+impl Command {
+    pub fn new(id, label, icon, action: impl Action) -&gt; Self;
+    pub fn destructive(self) -&gt; Self;   pub fn overflow(self) -&gt; Self;
+    pub fn disabled(self, disabled: bool) -&gt; Self;
+}
+// The shortcut is not stored here: it is read from the keymap for the action,
+// so the menu, the tooltip and the binding cannot disagree.</pre>
+  <table>
+    <tr><th>Rendered as</th><th>Pointer</th><th>Touch</th></tr>
+    <tr><td>Screen primary</td><td>Primary button</td><td>FAB, extended at rest</td></tr>
+    <tr><td>Screen secondary</td><td>Button with label, then icon + tooltip with shortcut</td><td>App bar icon (≤ 2)</td></tr>
+    <tr><td>Overflow</td><td><code>DropdownMenu</code> with <code>Kbd</code></td><td>Menu sheet; destructive rows in error colour, last</td></tr>
+    <tr><td>Disabled</td><td>Dimmed, tooltip says why</td><td>Hidden from the sheet if it can never apply here; otherwise dimmed</td></tr>
+  </table>
+  <p class="note">Dispatch is <code>window.dispatch_action(command.action.boxed_clone(), cx)</code>, so the owning view's <code>on_action</code> handler does the work in every skin.</p>
+</section>

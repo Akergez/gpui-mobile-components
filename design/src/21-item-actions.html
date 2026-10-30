@@ -1,0 +1,67 @@
+<!-- card group="Actions" title="ItemActions and selection" app="matterfast" -->
+<header class="card-h">
+  <h1><code>ItemActions</code>: what can be done to one item</h1>
+  <p>Commands bound to one item: a message, a channel row, a record, a task. matterfast already has both halves. On Pointer, <code>hover_actions.rs</code> shows a small bar over the hovered row, and right-click opens <code>post_menu.rs</code>. On Touch, <code>post_sheet.rs</code> opens on long press: quick reactions, the bar's actions and the ⋯ menu in one sheet, plus "Copy text", because the long press is taken before text selection. Rows can also carry swipe actions on Touch. Several items can be acted on at once in <b>selection mode</b>.</p>
+  <div class="apps"><span class="app">matterfast: messages, channel rows (row_menu.rs)</span><span class="app">money-manager: records</span><span class="app">aiddiction: conversations, tasks</span></div>
+</header>
+<div class="pair">
+  <figure><figcaption><b>Pointer</b>: hover bar (quick) + right-click menu (all)</figcaption>
+    <div class="desk short" style="width:500px">
+      <div class="d-main"><div class="d-content" style="gap:14px;padding-top:24px">
+        <div class="d-row" style="align-items:flex-start;position:relative;background:var(--hover);margin:0 -12px;padding:6px 12px">
+          <span class="avatar">SO<span class="presence"></span></span><div><b>Sara Okafor</b> <span class="muted" style="font-size:11px">14:01</span><br>So parse the track id instead.</div>
+          <div class="d-hoverbar"><span class="d-ib">👀</span><span class="d-ib">👍</span><span class="d-ib">{{i:smile}}</span><span class="d-ib">{{i:reply}}</span><span class="d-ib">{{i:more-h}}</span></div>
+        </div>
+        <div class="d-row" style="align-items:flex-start"><span class="avatar">AI<span class="presence off"></span></span><div><b>Anton Ivanov</b><br>Confirmed against rtcd/client/utils.go.</div></div>
+      </div></div>
+      <div class="d-popover d-menu" style="left:250px;top:120px;width:200px">
+        <div class="d-item">{{i:reply}} Reply</div><div class="d-item">{{i:copy}} Copy link</div><div class="d-item hover">{{i:pin}} Pin</div><div class="d-item">{{i:bell}} Remind me…</div><div class="sep"></div><div class="d-item danger">{{i:trash}} Delete</div>
+      </div>
+    </div>
+  </figure>
+  <figure><figcaption><b>Touch</b>: long press → action sheet (with haptic tick)</figcaption>
+    <div class="phone short" style="width:300px">
+      <div class="m-status"><span>9:41</span><span>▴ ▮</span></div>
+      <div class="m-appbar"><span class="m-ib">{{i:back}}</span><span class="t" style="padding-left:0">development</span></div>
+      <div class="m-content"><div style="padding:8px 16px;display:flex;gap:10px;background:var(--press)"><span class="avatar">SO</span><div style="font-size:14px"><b>Sara Okafor</b><br>So parse the track id instead.</div></div></div>
+      <div class="m-scrim"></div>
+      <div class="m-sheet"><div class="m-handle"></div>
+        <div style="display:flex;justify-content:space-around;padding:4px 16px 12px;font-size:24px">👀 👍 🎉 ✅ <span class="m-ib" style="width:40px;height:40px;background:var(--surface-container-highest)">{{i:smile}}</span></div>
+        <div class="m-li"><div class="lead icon">{{i:reply}}</div><div class="txt"><div class="h">Reply</div></div></div>
+        <div class="m-li"><div class="lead icon">{{i:copy}}</div><div class="txt"><div class="h">Copy text</div></div></div>
+        <div class="m-li"><div class="lead icon">{{i:pin}}</div><div class="txt"><div class="h">Pin</div></div></div>
+        <div class="m-li" style="color:var(--error)"><div class="lead icon" style="color:var(--error)">{{i:trash}}</div><div class="txt"><div class="h">Delete</div></div></div>
+      </div>
+    </div>
+  </figure>
+  <figure><figcaption><b>Touch</b>: swipe actions and selection mode</figcaption>
+    <div class="phone short" style="width:280px">
+      <div class="m-status"><span>9:41</span><span>▴ ▮</span></div>
+      <div class="m-appbar" style="background:var(--secondary-container);color:var(--on-secondary-container)"><span class="m-ib" style="color:inherit">{{i:x}}</span><span class="t" style="padding-left:0">2 selected</span><span class="m-ib" style="color:inherit">{{i:tag}}</span><span class="m-ib" style="color:inherit">{{i:trash}}</span></div>
+      <div class="m-list">
+        <div class="m-li sel"><div class="lead" style="background:var(--primary);color:var(--on-primary)">{{i:check}}</div><div class="txt"><div class="h">Groceries</div><div class="s">12 Oct</div></div><div class="amount neg">−1 240</div></div>
+        <div class="m-li sel"><div class="lead" style="background:var(--primary);color:var(--on-primary)">{{i:check}}</div><div class="txt"><div class="h">Pharmacy</div><div class="s">12 Oct</div></div><div class="amount neg">−380</div></div>
+        <div class="m-li" style="overflow:hidden;padding:0;min-height:72px">
+          <div class="m-swipe-under" style="background:var(--error);color:var(--on-error);justify-content:flex-end">{{i:trash}}</div>
+          <div class="m-li" style="position:absolute;inset:0;right:96px;left:-96px;background:var(--surface)"><div class="lead">🚌</div><div class="txt"><div class="h">Transport</div><div class="s">11 Oct</div></div><div class="amount neg">−60</div></div>
+        </div>
+      </div>
+    </div>
+  </figure>
+</div>
+<section class="spec">
+<pre class="api">Collection::new("records", &amp;self.records)
+    .item_actions(|record| ItemActions::new()
+        .quick(Command::new(("edit", record.id), "Edit", IconName::Pencil, EditRecord(record.id)))
+        .command(Command::new(("dup", record.id), "Duplicate", IconName::Copy, Duplicate(record.id)))
+        .command(Command::new(("del", record.id), "Delete", IconName::Trash, Delete(record.id)).destructive())
+        .swipe_end(SwipeAction::destructive(Delete(record.id))))
+    .selectable(true)</pre>
+  <table>
+    <tr><th></th><th>Pointer</th><th>Touch</th></tr>
+    <tr><td>Quick actions</td><td>Hover bar, top-right of the row</td><td>Top of the action sheet (reactions for messages)</td></tr>
+    <tr><td>All actions</td><td>Right-click <code>ContextMenu</code>, and a ⋯ in the hover bar</td><td>Long press (captured before text selection, haptic tick) → sheet</td></tr>
+    <tr><td>Swipe</td><td>—</td><td>Start/end swipe with threshold and haptic tick; the destructive one shows <code>Undo</code></td></tr>
+    <tr><td>Select many</td><td><code>Ctrl</code>/<code>Shift</code>-click, checkboxes on hover</td><td>Long press on a selectable list enters selection mode; contextual app bar; back leaves (guard)</td></tr>
+  </table>
+</section>

@@ -1,0 +1,26 @@
+[workspace]
+resolver = "2"
+members = ["crates/gpui-adaptive", "crates/gallery"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.95"
+license = "GPL-3.0"
+authors = ["Akergez"]
+
+[workspace.dependencies]
+gpui-adaptive = { path = "crates/gpui-adaptive" }
+gpui-kit = "0.7.0"
+# The colour engine the three applications share, at the revision they pin.
+gpui-adaptive-colors = { git = "https://github.com/Akergez/gpui-adaptive-colors", rev = "55e9997f9bf9858f7a9242bcf75a92cf15732596" }
+# What a phone needs beyond gpui-mobile, at the tag aiddiction and matterfast use.
+gpui-android-glue = { git = "https://github.com/Akergez/gpui-android-glue", tag = "v0.4.0" }
+
+[profile.dev]
+debug = "line-tables-only"
+
+# The toolkit lays out and paints every frame; unoptimised it does so at a
+# fraction of the display's rate.
+[profile.dev.package."*"]
+opt-level = 2
