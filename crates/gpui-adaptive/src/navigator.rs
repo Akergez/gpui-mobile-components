@@ -3,12 +3,18 @@
 //! The application describes its pages as [`Route`]s. A route may name its
 //! *companion*, the page shown beside it when the window is wide enough: a
 //! conversation's companion is the list of conversations, a record's is the
-//! records. matterfast's `layout/split.rs` ("on a phone the list is the main
-//! screen, as it is in Telegram: a conversation is a page laid over it") and
-//! aiddiction's page stack are this one intent.
+//! records. matterfast's places (a list, a conversation, its thread: on a
+//! phone the list is the main screen, as in Telegram) and aiddiction's
+//! page stack are this one intent.
 //!
-//! - **Medium and Expanded**: the companion as a column of
-//!   [`Route::column_width`], the page beside it.
+//! - **Medium and Expanded**: the page with its companion beside it, and
+//!   the companion's companion beside that while there is room: two
+//!   columns on a medium window, three on an expanded one (a list, a
+//!   conversation, a thread). One column takes what the others leave
+//!   ([`Route::grows`], the rightmost by default); the others are
+//!   [`Route::column_width`] wide, or as wide as the person dragged them
+//!   ([`Navigator::resizable`]). A page that [`Route::floats`] is laid over
+//!   the right of the columns instead of taking one: results to glance at.
 //! - **Compact**: the top of the stack. A page coming in slides from the
 //!   side on a finger and fades in on a pointer. While back would go
 //!   somewhere, the navigator is a layer of `gpui_android_glue::back`: the
@@ -26,7 +32,7 @@ use gpui_kit::component::{ActiveTheme, h_flex};
 use gpui_kit::prelude::*;
 use gpui_kit::{
     Animation, AnimationExt as _, AnyElement, App, Context, ElementId, Entity, EventEmitter,
-    RenderOnce, Rems, Window, div, ease_out_quint, relative, rems,
+    Pixels, Render, RenderOnce, Rems, Window, div, ease_out_quint, px, relative, rems,
 };
 
 use crate::command::Handler;
@@ -51,6 +57,21 @@ pub trait Route: Clone + PartialEq + 'static {
     /// How wide this page is when it is the column beside another.
     fn column_width(&self) -> Rems {
         rems(22.)
+    }
+
+    /// Whether this column takes the room the others leave: a conversation
+    /// between its list and its thread. When no column shown says so, the
+    /// rightmost does.
+    fn grows(&self) -> bool {
+        false
+    }
+
+    /// Whether, when there is room for columns, this page is laid over the
+    /// right of them rather than taking one: search results, glanced at and
+    /// put away, which should not push the conversation aside. On a compact
+    /// window it is a page like any other.
+    fn floats(&self) -> bool {
+        false
     }
 
     /// Whether something in the page scrolls sideways (a diff, a board, a
@@ -160,6 +181,33 @@ impl<R: Route> NavigatorState<R> {
         }
     }
 
+    /// Makes the stack `stack`, as the application's own state says what is
+    /// open: a conversation, a thread over it. Nothing happens if it is
+    /// already so; a longer stack with the same start comes in as a push, a
+    /// shorter one as a pop.
+    pub fn set_stack(&mut self, stack: Vec<R>, cx: &mut Context<Self>) {
+        assert!(!stack.is_empty(), "a navigator always has a page");
+        if stack == self.stack {
+            return;
+        }
+        let change = if stack.len() > self.stack.len() && stack.starts_with(&self.stack) {
+            Change::Push
+        } else if stack.len() < self.stack.len() && self.stack.starts_with(&stack) {
+            Change::Pop
+        } else {
+            Change::Replace
+        };
+        self.stack = stack;
+        self.changed(change, cx);
+    }
+
+    /// How far the page in front has been moved aside by a gesture of back
+    /// under way, as a share of its width; none without one. For a UI
+    /// scenario to check that the page follows the finger.
+    pub fn gesture_offset(&self, window: &mut Window, cx: &mut App) -> Option<f32> {
+        self.back.as_ref()?.gesture(window, cx).map(|gesture| gesture.offset())
+    }
+
     /// Goes back a page, answering whether there was one.
     pub fn back(&mut self, cx: &mut Context<Self>) -> bool {
         if self.stack.len() > 1 {
@@ -218,12 +266,19 @@ impl Page {
 
 type RenderPage<R> = Rc<dyn Fn(&R, Page, &mut Window, &mut App) -> AnyElement>;
 
+/// How wide a column is, given the window's width.
+type WidthOf<R> = Rc<dyn Fn(&R, Pixels, &App) -> Pixels>;
+
+/// A column dragged to a width, or given back its own (`None`).
+type OnResize<R> = Rc<dyn Fn(&R, Option<Pixels>, &mut App)>;
+
 /// Draws a [`NavigatorState`]'s pages.
 #[derive(IntoElement)]
 pub struct Navigator<R: Route> {
     id: ElementId,
     state: Entity<NavigatorState<R>>,
     render_page: RenderPage<R>,
+    resizable: Option<(WidthOf<R>, OnResize<R>)>,
 }
 
 impl<R: Route> Navigator<R> {
@@ -235,8 +290,99 @@ impl<R: Route> Navigator<R> {
         state: &Entity<NavigatorState<R>>,
         render_page: impl Fn(&R, Page, &mut Window, &mut App) -> AnyElement + 'static,
     ) -> Self {
-        Navigator { id: id.into(), state: state.clone(), render_page: Rc::new(render_page) }
+        Navigator { id: id.into(), state: state.clone(), render_page: Rc::new(render_page), resizable: None }
     }
+
+    /// Lets the person size the columns that do not grow by dragging their
+    /// edge; a double click gives a column back its own width. `width_of`
+    /// says how wide a column is (what it was dragged to, kept within
+    /// reason, or a share of the window), `on_resize` hears a drag.
+    pub fn resizable(
+        mut self,
+        width_of: impl Fn(&R, Pixels, &App) -> Pixels + 'static,
+        on_resize: impl Fn(&R, Option<Pixels>, &mut App) + 'static,
+    ) -> Self {
+        self.resizable = Some((Rc::new(width_of), Rc::new(on_resize)));
+        self
+    }
+}
+
+/// How many columns a window of this class has room for.
+fn room(width: WidthClass) -> usize {
+    match width {
+        WidthClass::Compact => 1,
+        WidthClass::Medium => 2,
+        WidthClass::Expanded => 3,
+    }
+}
+
+/// What is shown when there is room for `room` columns: the columns, left
+/// to right, and the page laid over them. One column and nothing over it
+/// is the stack.
+fn layout<R: Route>(top: &R, room: usize) -> (Vec<R>, Option<R>) {
+    let floating = (room > 1 && top.floats() && top.companion().is_some()).then(|| top.clone());
+    let mut columns = Vec::new();
+    let mut next = match &floating {
+        Some(top) => top.companion(),
+        None => Some(top.clone()),
+    };
+    while let Some(route) = next {
+        if columns.len() == room {
+            break;
+        }
+        next = route.companion();
+        columns.push(route);
+    }
+    columns.reverse();
+    if room > 1
+        && let [only] = columns.as_slice()
+        && let Some(detail) = only.wide_detail()
+    {
+        columns.push(detail);
+    }
+    (columns, floating)
+}
+
+/// The edge of a column being dragged: its place among the columns.
+#[derive(Clone, Copy)]
+struct ColumnEdge(usize);
+
+/// What follows the pointer while an edge is dragged: nothing; the column
+/// moving is the feedback.
+struct EdgeGhost;
+
+impl Render for EdgeGhost {
+    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+        gpui_kit::Empty
+    }
+}
+
+/// How wide the strip is that drags a column's edge, over the border.
+const GRIP: f32 = 7.;
+
+/// The strip over a column's edge, `at` from the left or the right of the
+/// columns. Draws nothing until the pointer is on it.
+fn edge(index: usize, at: Pixels, from_left: bool, on_reset: Handler, focus: gpui_kit::Hsla) -> AnyElement {
+    let strip = div()
+        .id(("navigator-edge", index))
+        .absolute()
+        .top_0()
+        .bottom_0()
+        .w(px(GRIP))
+        .flex()
+        .justify_center()
+        .cursor_col_resize()
+        .occlude()
+        .group("navigator-edge")
+        .child(div().w(px(2.)).h_full().group_hover("navigator-edge", move |mark| mark.bg(focus)))
+        .on_drag(ColumnEdge(index), |_, _, _, cx| cx.new(|_| EdgeGhost))
+        .on_click(move |click, window, cx| {
+            if click.click_count() == 2 {
+                on_reset(window, cx);
+            }
+        });
+    let at = at - px(GRIP / 2.);
+    if from_left { strip.left(at) } else { strip.right(at) }.into_any_element()
 }
 
 impl<R: Route> RenderOnce for Navigator<R> {
@@ -244,18 +390,11 @@ impl<R: Route> RenderOnce for Navigator<R> {
         let env = Env::of(window, cx);
         let state = self.state.read(cx);
         let top = state.top().clone();
-        let roomy = env.width() != WidthClass::Compact;
-        // A page and its companion beside it, or a page and what stands beside
-        // it when nothing else does.
-        let pair = match (top.companion(), top.wide_detail()) {
-            (Some(companion), _) if roomy => Some((companion, top.clone())),
-            (None, Some(detail)) if roomy => Some((top.clone(), detail)),
-            _ => None,
-        };
-        let columns = pair.is_some();
+        let (columns, floating) = layout(&top, room(env.width()));
+        let stacked = columns.len() == 1 && floating.is_none();
         let (generation, change) = (state.generation, state.change);
         let back_target = state.back_target();
-        self.state.update(cx, |state, cx| state.sync_back(!columns, cx));
+        self.state.update(cx, |state, cx| state.sync_back(stacked, cx));
 
         let weak = self.state.downgrade();
         let up: Handler = Rc::new(move |_, cx| {
@@ -265,18 +404,8 @@ impl<R: Route> RenderOnce for Navigator<R> {
             .ok();
         });
 
-        if let Some((companion, top)) = pair {
-            let theme = cx.theme();
-            let border = theme.border;
-            let width = companion.column_width();
-            let column = (self.render_page)(&companion, Page { up: None, column: true }, window, cx);
-            let page = (self.render_page)(&top, Page { up: None, column: false }, window, cx);
-            return h_flex()
-                .id(self.id)
-                .size_full()
-                .child(div().flex_none().w(width).h_full().border_r_1().border_color(border).child(column))
-                .child(div().flex_1().min_w_0().h_full().child(page))
-                .into_any_element();
+        if !stacked {
+            return self.columns(columns, floating, up, window, cx);
         }
 
         let has_back = back_target.is_some();
@@ -298,6 +427,92 @@ impl<R: Route> RenderOnce for Navigator<R> {
             .under(under)
             .swipe_back(env.is_touch() && has_back && !top.scrolls_sideways())
             .into_any_element()
+    }
+}
+
+impl<R: Route> Navigator<R> {
+    /// The pages side by side, and the one laid over them.
+    fn columns(self, columns: Vec<R>, floating: Option<R>, up: Handler, window: &mut Window, cx: &mut App) -> AnyElement {
+        let (border, focus) = {
+            let theme = cx.theme();
+            (theme.border, theme.ring)
+        };
+        let window_width = window.viewport_size().width;
+        let grows = columns.iter().position(Route::grows).unwrap_or(columns.len() - 1);
+        let width = |route: &R, cx: &App| -> gpui_kit::AbsoluteLength {
+            match &self.resizable {
+                Some((width_of, _)) => width_of(route, window_width, cx).into(),
+                None => route.column_width().into(),
+            }
+        };
+        // The edges that can be dragged, and how far each is from the side
+        // of the columns it is measured from: the sum of the fixed widths
+        // between it and that side. Only with widths in pixels.
+        let pixels = |route: &R, cx: &App| match &self.resizable {
+            Some((width_of, _)) => width_of(route, window_width, cx),
+            None => px(0.),
+        };
+        let mut edges = Vec::new();
+        if let Some((_, on_resize)) = &self.resizable {
+            let reset = |route: &R| -> Handler {
+                let (route, on_resize) = (route.clone(), on_resize.clone());
+                Rc::new(move |_, cx| on_resize(&route, None, cx))
+            };
+            let mut at = px(0.);
+            for (index, route) in columns.iter().enumerate().take(grows) {
+                at += pixels(route, cx);
+                edges.push(edge(index, at, true, reset(route), focus));
+            }
+            let mut at = px(0.);
+            for (index, route) in columns.iter().enumerate().skip(grows + 1).rev() {
+                at += pixels(route, cx);
+                edges.push(edge(index, at, false, reset(route), focus));
+            }
+            if let Some(over) = &floating {
+                edges.push(edge(columns.len(), pixels(over, cx), false, reset(over), focus));
+            }
+        }
+
+        let mut row = h_flex().id(self.id).relative().size_full();
+        for (index, route) in columns.iter().enumerate() {
+            let page = (self.render_page)(route, Page { up: None, column: index != grows }, window, cx);
+            let column = div().h_full().child(page);
+            row = row.child(match index.cmp(&grows) {
+                std::cmp::Ordering::Less => column.flex_none().w(width(route, cx)).border_r_1().border_color(border),
+                std::cmp::Ordering::Equal => column.flex_1().min_w_0(),
+                std::cmp::Ordering::Greater => column.flex_none().w(width(route, cx)).border_l_1().border_color(border),
+            });
+        }
+        if let Some(over) = &floating {
+            let page = (self.render_page)(over, Page { up: Some(up), column: true }, window, cx);
+            row = row.child(
+                div().absolute().top_0().bottom_0().right_0().w(width(over, cx)).shadow_lg().occlude().child(page),
+            );
+        }
+        if let Some((width_of, on_resize)) = self.resizable.clone() {
+            // The order of the edges' indices: the columns, then the page over them.
+            let routes: Vec<R> = columns.iter().cloned().chain(floating.clone()).collect();
+            let count = columns.len();
+            row = row.on_drag_move(move |moved: &gpui_kit::DragMoveEvent<ColumnEdge>, _, cx| {
+                let ColumnEdge(index) = *moved.drag(cx);
+                let Some(route) = routes.get(index) else { return };
+                let sum = |routes: &[R], cx: &App| {
+                    routes.iter().map(|route| width_of(route, window_width, cx)).fold(px(0.), |a, b| a + b)
+                };
+                let pointer = moved.event.position.x;
+                // The columns between the dragged edge and its side keep
+                // their widths.
+                let dragged = if index < grows {
+                    pointer - moved.bounds.left() - sum(&routes[..index], cx)
+                } else if index < count {
+                    moved.bounds.right() - sum(&routes[index + 1..count], cx) - pointer
+                } else {
+                    moved.bounds.right() - pointer
+                };
+                on_resize(route, Some(dragged.round()), cx);
+            });
+        }
+        row.children(edges).into_any_element()
     }
 }
 
@@ -347,6 +562,69 @@ mod tests {
                 _ => None,
             }
         }
+    }
+
+    /// A list, a conversation, a thread over it, results laid over it.
+    #[derive(Clone, Copy, Debug, PartialEq)]
+    enum Chat {
+        List,
+        Conversation,
+        Thread,
+        Search,
+    }
+
+    impl Route for Chat {
+        fn companion(&self) -> Option<Self> {
+            match self {
+                Chat::List => None,
+                Chat::Conversation => Some(Chat::List),
+                Chat::Thread | Chat::Search => Some(Chat::Conversation),
+            }
+        }
+
+        fn wide_detail(&self) -> Option<Self> {
+            (*self == Chat::List).then_some(Chat::Conversation)
+        }
+
+        fn grows(&self) -> bool {
+            *self == Chat::Conversation
+        }
+
+        fn floats(&self) -> bool {
+            *self == Chat::Search
+        }
+    }
+
+    #[test]
+    fn as_many_columns_as_there_is_room_for_from_the_top_down() {
+        assert_eq!(layout(&Chat::Thread, 3), (vec![Chat::List, Chat::Conversation, Chat::Thread], None));
+        assert_eq!(layout(&Chat::Thread, 2), (vec![Chat::Conversation, Chat::Thread], None));
+        assert_eq!(layout(&Chat::Thread, 1), (vec![Chat::Thread], None));
+        // Nothing chosen yet: what stands beside the list where there is room.
+        assert_eq!(layout(&Chat::List, 3), (vec![Chat::List, Chat::Conversation], None));
+        assert_eq!(layout(&Chat::List, 1), (vec![Chat::List], None));
+    }
+
+    #[test]
+    fn a_floating_page_lies_over_its_columns_and_is_a_page_on_a_phone() {
+        assert_eq!(layout(&Chat::Search, 3), (vec![Chat::List, Chat::Conversation], Some(Chat::Search)));
+        assert_eq!(layout(&Chat::Search, 1), (vec![Chat::Search], None));
+    }
+
+    #[gpui_kit::test]
+    fn a_stack_set_from_the_applications_state_comes_in_as_it_changed(cx: &mut gpui_kit::TestAppContext) {
+        let navigator = cx.new(|_| NavigatorState::new(Chat::List));
+        navigator.update(cx, |navigator, cx| {
+            navigator.set_stack(vec![Chat::List, Chat::Conversation, Chat::Thread], cx);
+            assert_eq!(navigator.change, Change::Push);
+            let generation = navigator.generation;
+            navigator.set_stack(vec![Chat::List, Chat::Conversation, Chat::Thread], cx);
+            assert_eq!(navigator.generation, generation, "the same stack changes nothing");
+            navigator.set_stack(vec![Chat::List, Chat::Conversation], cx);
+            assert_eq!(navigator.change, Change::Pop);
+            assert!(navigator.back(cx));
+            assert_eq!(navigator.stack(), &[Chat::List]);
+        });
     }
 
     #[gpui_kit::test]

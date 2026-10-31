@@ -53,7 +53,7 @@ gpui_kit::application().with_assets(gpui_kit::assets::Assets).run(|cx| {
 **Structure**
 - [Destinations](components/destinations.md): sections as a bar, rail or sidebar
 - [Screen](components/screen.md): a page with a title and commands
-- [Navigator](components/navigator.md): columns or a stack, with predictive back
+- [Navigator](components/navigator.md): up to three columns or a stack, with predictive back and swipe back
 - [Sheet](components/sheet.md): a bottom sheet or a dialog
 - [Dock](components/dock.md): something that outlives the page
 - [Stack](components/stack.md): the parts of a page in a centred column
