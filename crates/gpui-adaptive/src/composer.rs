@@ -23,17 +23,19 @@
 use gpui_kit::component::button::{Button, ButtonVariants};
 use gpui_kit::component::menu::{DropdownMenu as _, PopupMenuItem};
 use gpui_kit::component::input::{InputEvent, RopeExt as _, Textarea, TextareaState};
-use gpui_kit::component::{ActiveTheme, Disableable as _, IconName, Sizable, h_flex, v_flex};
+use gpui_kit::component::{IconName, Sizable};
 use gpui_kit::prelude::*;
 use gpui_kit::{
     AnyElement, App, Context, ElementId, Entity, EventEmitter, FocusHandle, Focusable, RenderOnce, SharedString,
-    Subscription, Window, div,
+    Subscription, Window, div, rems,
 };
 
 use std::rc::Rc;
 
+use crate::colors::ActiveColors;
 use crate::command::{Command, Handler};
 use crate::env::{Env, InputMode, input_mode};
+use crate::prim::{Surface, Text, column, pressable, row, surface, testable};
 use crate::scale::ActiveScale;
 use crate::sheet::Sheet;
 
@@ -226,21 +228,20 @@ impl RenderOnce for Suggestions {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let env = Env::of(window, cx);
         let scale = cx.scale();
-        let (muted, mono) = (cx.theme().muted_foreground, cx.theme().mono_font_family.clone());
         let rows = self.0.into_iter().map(|suggestion| {
             let on_pick = suggestion.on_pick.clone();
-            let row = crate::touch::pressable(suggestion.id, env, cx)
-                .gap_2()
-                .px_2()
+            let label = if suggestion.code { Text::mono(suggestion.label) } else { Text::small(suggestion.label) };
+            let row = pressable(suggestion.id, cx)
+                .gap(scale.space_s)
+                .px(scale.space_s)
                 .rounded(scale.radius_control)
                 .min_h(if env.is_touch() { scale.target } else { scale.row })
-                .text_size(scale.small)
-                .child(div().flex_none().when(suggestion.code, |label| label.font_family(mono.clone())).child(suggestion.label))
-                .children(suggestion.detail.map(|detail| div().min_w_0().truncate().text_color(muted).child(detail)))
+                .child(div().flex_none().child(label))
+                .children(suggestion.detail.map(|detail| Text::small(detail).muted().truncate()))
                 .on_click(move |_, window, cx| on_pick(window, cx));
-            crate::prim::testable(row)
+            testable(row)
         });
-        v_flex().w_full().px_1().py_1().children(rows)
+        column().w_full().p(scale.space_xs).children(rows)
     }
 }
 
@@ -284,51 +285,43 @@ impl Tool {
 impl RenderOnce for Composer {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let env = Env::of(window, cx);
-        let theme = cx.theme();
-        let scale = cx.scale();
+        let (colors, scale) = (cx.colors(), cx.scale());
         let text = self.state.read(cx).text.clone();
         let empty = self.state.read(cx).is_empty(cx);
         let state = self.state.clone();
+        // Send is round, `inset` from the card's edges, and the card's corner
+        // is round about the same centre: inset plus half the button.
+        let (size, inset) = (scale.control, scale.space_s);
+        let corner = rems(inset.0 + size.0 / 2.);
         let send = match &self.stop {
-            Some(stop) => {
-                let stop = stop.clone();
-                Button::new(stop.id().clone())
-                    .icon(IconName::Pause)
-                    .accessibility_label(stop.label().clone())
-                    .tooltip(stop.label().clone())
-                    .on_click(move |_, window, cx| stop.run(window, cx))
-            }
-            None => Button::new(("composer-send", self.state.entity_id()))
+            Some(stop) => stop.clone().icon(IconName::Pause).icon_button(env).primary(),
+            None => Command::new(("composer-send", self.state.entity_id()), "Send")
                 .icon(IconName::ArrowUp)
-                .primary()
                 .disabled(empty || !self.can_send)
-                .accessibility_label("Send")
-                .tooltip("Send")
-                .on_click(move |_, _, cx| state.update(cx, |state, cx| state.send(cx))),
+                .on_trigger(move |_, cx| state.update(cx, |state, cx| state.send(cx)))
+                .icon_button(env)
+                .primary(),
         };
         let area = Textarea::new(&text).appearance(false);
         let area = gpui_android_glue::keyboard::on_tap(area, &text, cx);
-        let (border, muted, background) = (theme.border, theme.muted_foreground, theme.background);
         // A finger has no use for a line about the keys.
         let hint = self.hint.filter(|_| !env.is_touch());
-        v_flex()
+        surface(Surface::Card, cx)
             .w_full()
-            .rounded(gpui_kit::rems(1.125))
-            .border_1()
-            .border_color(border)
-            .bg(background)
+            .rounded(corner)
             .overflow_hidden()
-            .children(self.above.into_iter().map(|above| div().border_b_1().border_color(border).child(above)))
-            .child(div().px_1().pt_1().child(area))
+            .children(self.above.into_iter().map(|above| div().border_b_1().border_color(colors.border).child(above)))
+            .child(div().px(inset).pt(inset).child(area))
             .child(
-                h_flex()
-                    .gap_1()
-                    .px_2()
-                    .pb_2()
+                row()
+                    .gap(scale.space_xs)
+                    .pl(inset)
+                    .pr(inset)
+                    .pb(inset)
                     .children(self.tools.iter().map(|tool| tool.button(env)))
-                    .children(hint.map(|hint| div().min_w_0().truncate().text_size(scale.small).text_color(muted).child(hint)))
+                    .children(hint.map(|hint| Text::small(hint).muted().truncate()))
                     .child(div().flex_1())
-                    .child(send.small()),
+                    .child(send.w(size).h(size).rounded_full()),
             )
     }
 }

@@ -11,7 +11,7 @@
 | Up | ← before the title, if the page has a way up | ← before the title |
 | Commands | buttons with labels on an Expanded window, icon buttons with tooltips otherwise or in a column | at most two icons; the rest behind ⋮ in a sheet |
 | Overflow and destructive | ⋯ dropdown menu with key bindings | in the ⋮ sheet, destructive last |
-| Primary | the primary button at the end of the bar | a FAB in the content's corner, extended with its label on a root page |
+| Primary | the primary button at the end of the bar | a FAB in the content's corner, its icon alone |
 | Content | `overflow_y_scrollbar()` | `overflow_y_scroll().lock_scroll_axis()` |
 
 | Pointer | Touch |

@@ -8,7 +8,7 @@
 //! **Touch**: a Material top app bar. The title is over the subtitle, at
 //! most two commands are icons, the rest are in a sheet behind "⋮", and the
 //! primary command is a floating action button over the content's corner,
-//! extended with its label on a root page. A root page has the large title.
+//! its icon alone. A root page has the large title.
 //!
 //! The content is the page's one vertical scroll area, which the screen
 //! owns: locked to its axis for a finger. A page that scrolls in its own way
@@ -312,7 +312,7 @@ impl Screen {
                     div().text_size(scale.small).text_color(palette.on_surface_variant).child(subtitle)
                 }))
         });
-        let fab = primary.map(|command| fab(&command, self.root, cx));
+        let fab = primary.map(|command| fab(&command, cx));
         let content = self.render_content(env);
         // A desktop window drawn in the touch skin (a preview) still needs its
         // controls; a phone has none.
@@ -353,8 +353,9 @@ fn title_bar(content: impl IntoElement, cx: &App) -> AnyElement {
 }
 
 /// The floating action button: the container colour of Material's FAB,
-/// 56 dp, 16 dp from the corner; with its label on a root page.
-fn fab(command: &Command, extended: bool, cx: &App) -> AnyElement {
+/// 56 dp, 16 dp from the corner. Its icon alone; the label only when it has
+/// no icon.
+fn fab(command: &Command, cx: &App) -> AnyElement {
     let palette = cx.palette();
     let scale = cx.scale();
     let chosen = command.clone();
@@ -378,7 +379,7 @@ fn fab(command: &Command, extended: bool, cx: &App) -> AnyElement {
         .when(command.is_disabled(), |fab| fab.opacity(0.4))
         .active(move |style| style.opacity(0.88))
         .children(command.icon_ref().cloned().map(|icon| icon.large()))
-        .when(extended || command.icon_ref().is_none(), |fab| {
+        .when(command.icon_ref().is_none(), |fab| {
             fab.child(div().font_weight(FontWeight::SEMIBOLD).child(command.label().clone()))
         })
         .on_click(move |_, window, cx| chosen.run(window, cx))

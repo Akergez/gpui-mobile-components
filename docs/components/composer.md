@@ -8,7 +8,7 @@ The composer writes a message to someone in a channel (matterfast) or to an agen
 |---|---|---|
 | Layout | a card: what stands above, the field, then the tools, the hint and send | the same card, without the hint |
 | Tools | icon buttons under the field; a menu tool shows what is chosen and opens a menu | the same buttons; a menu tool opens a [sheet](sheet.md) of its options |
-| Working | send is a stop button | the same |
+| Working | send is a stop button, round and filled like it | the same |
 | Hint | a line about the keys beside the tools | not shown |
 | Enter | sends; Shift+Enter breaks the line | breaks the line; the send button sends, as on a phone |
 | Keyboard | — | `Purpose::Message`: capitals and corrections; the composer rides on it (the page pads by `Insets::typing()`) |
