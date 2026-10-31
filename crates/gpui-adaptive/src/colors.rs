@@ -43,6 +43,20 @@ pub struct Colors {
     pub warning: Hsla,
     pub danger: Hsla,
     pub info: Hsla,
+    /// Text on the danger colour.
+    pub on_danger: Hsla,
+    /// A link in running text.
+    pub link: Hsla,
+    /// The ring around what has the keyboard's focus.
+    pub focus: Hsla,
+    /// The application's navigation (a sidebar, a rail): its fill, its
+    /// text, the place that is open, and its edge.
+    pub nav: Hsla,
+    pub on_nav: Hsla,
+    pub nav_selected: Hsla,
+    pub nav_border: Hsla,
+    /// Whether the colours are a dark scheme.
+    pub dark: bool,
     /// The font for text a machine wrote.
     pub mono_font: SharedString,
 }
@@ -52,6 +66,7 @@ impl Colors {
         let theme = cx.theme();
         let (success, warning, danger, info) = (theme.success, theme.warning, theme.danger, theme.info);
         let mono_font = theme.mono_font_family.clone();
+        let (link, focus, dark) = (theme.link, theme.ring, theme.mode.is_dark());
         match input_mode(cx) {
             InputMode::Pointer => Colors {
                 text: theme.foreground,
@@ -70,6 +85,14 @@ impl Colors {
                 warning,
                 danger,
                 info,
+                on_danger: theme.danger_foreground,
+                link,
+                focus,
+                nav: theme.sidebar,
+                on_nav: theme.sidebar_foreground,
+                nav_selected: theme.sidebar_accent,
+                nav_border: theme.sidebar_border,
+                dark,
                 mono_font,
             },
             InputMode::Touch => {
@@ -91,6 +114,14 @@ impl Colors {
                     warning,
                     danger: palette.error,
                     info,
+                    on_danger: palette.on_error,
+                    link,
+                    focus,
+                    nav: palette.surface_container,
+                    on_nav: palette.on_surface,
+                    nav_selected: palette.secondary_container,
+                    nav_border: palette.outline_variant,
+                    dark,
                     mono_font,
                 }
             }

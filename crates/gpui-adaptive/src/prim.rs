@@ -8,7 +8,8 @@
 //! - [`pressable`]: what can be pressed, with the skin's feedback, and
 //!   [`testable`] to find it in a UI test;
 //! - [`scroll_y`], [`scroll_x`]: a scroll area locked to its axis for a finger;
-//! - [`tooltip`], [`spinner`];
+//!   [`Scrolls`] for the application's own scrolling element;
+//! - [`tooltip`], [`spinner`], [`rem_size`];
 //! - [`Text`], [`Markdown`], [`Meter`].
 
 use std::sync::Arc;
@@ -30,6 +31,14 @@ use crate::scale::ActiveScale;
 /// The skin in use; the width does not matter to what is here.
 fn env(cx: &App) -> crate::env::Env {
     crate::env::Env::new(input_mode(cx), crate::env::WidthClass::Expanded)
+}
+
+/// What a rem is in pixels, where there is no window to ask: the size the
+/// person's text is set to. For a length that has to be a number of pixels
+/// (a list row's height, measured ahead).
+pub fn rem_size(cx: &App) -> gpui_kit::Pixels {
+    use gpui_kit::component::ActiveTheme as _;
+    cx.theme().font_size
 }
 
 /// Things side by side, centred across.
@@ -90,6 +99,36 @@ pub fn scroll_x(id: impl Into<ElementId>, cx: &App, content: Div) -> AnyElement 
     match input_mode(cx) {
         InputMode::Pointer => area.overflow_x_scrollbar().into_any_element(),
         InputMode::Touch => area.overflow_x_scroll().lock_scroll_axis().into_any_element(),
+    }
+}
+
+/// Scrolling along one axis on an element the application lays out itself:
+/// a list of bounded height inside a popup, a strip of tabs. The axis is
+/// locked, so that a finger's swipe across it moves what is around it
+/// instead (the gpui-mobile rule). Track a scroll handle on it as usual.
+pub trait Scrolls: Sized {
+    /// Scrolls up and down, and only so.
+    fn scrolls_y(self) -> Self;
+    /// Scrolls sideways, and only so.
+    fn scrolls_x(self) -> Self;
+}
+
+impl Scrolls for Stateful<Div> {
+    fn scrolls_y(self) -> Self {
+        self.overflow_y_scroll().lock_scroll_axis()
+    }
+
+    fn scrolls_x(self) -> Self {
+        self.overflow_x_scroll().lock_scroll_axis()
+    }
+}
+
+/// `holder` with a scrollbar for the gpui `list` in it: a feed of messages
+/// too long to lay out at once. A finger scrolls it without one.
+pub fn list_scrollbar(holder: Div, list: &gpui_kit::ListState, cx: &App) -> Div {
+    match input_mode(cx) {
+        InputMode::Pointer => holder.vertical_scrollbar(list),
+        InputMode::Touch => holder,
     }
 }
 
@@ -221,17 +260,68 @@ impl RenderOnce for Text {
 /// What a link in [`Markdown`] opens; gpui-kit's text view wants it `Send`.
 type OnLink = dyn Fn(&str, &mut Window, &mut App) + Send + Sync;
 
+/// What a right click on a link in [`Markdown`] asks for, at the point it
+/// landed (in window coordinates).
+type OnLinkMenu = dyn Fn(&str, gpui_kit::Point<gpui_kit::Pixels>, &mut Window, &mut App) + Send + Sync;
+
 /// Text in Markdown, which can be selected.
+///
+/// An application's own syntax — its custom emoji, its mentions — comes in
+/// through [`crate::markdown`]'s plugins, set with [`Markdown::extensions`].
 #[derive(IntoElement)]
 pub struct Markdown {
     id: ElementId,
     text: SharedString,
+    selectable: bool,
+    inherit_size: bool,
+    extensions: Option<crate::markdown::MarkdownExtensions>,
     on_link: Option<Arc<OnLink>>,
+    on_link_menu: Option<Arc<OnLinkMenu>>,
 }
 
 impl Markdown {
     pub fn new(id: impl Into<ElementId>, text: impl Into<SharedString>) -> Self {
-        Markdown { id: id.into(), text: text.into(), on_link: None }
+        Markdown {
+            id: id.into(),
+            text: text.into(),
+            selectable: true,
+            inherit_size: false,
+            extensions: None,
+            on_link: None,
+            on_link_menu: None,
+        }
+    }
+
+    /// Whether the text can be selected (it can): not in a row a long
+    /// press opens, where selecting would take the press.
+    pub fn selectable(mut self, selectable: bool) -> Self {
+        self.selectable = selectable;
+        self
+    }
+
+    /// The size of the text around it rather than the skin's body size: a
+    /// message in a feed the application sizes itself.
+    pub fn inherit_size(mut self) -> Self {
+        self.inherit_size = true;
+        self
+    }
+
+    /// The application's own syntax. Build the extensions once and clone
+    /// them: a clone keeps its revision, which lets the text keep what it
+    /// parsed from one frame to the next.
+    pub fn extensions(mut self, extensions: crate::markdown::MarkdownExtensions) -> Self {
+        self.extensions = Some(extensions);
+        self
+    }
+
+    /// What a right click on a link does instead of opening it: a menu at
+    /// the point (follow, copy), for [`crate::Menu::open_at`].
+    pub fn on_link_menu(
+        mut self,
+        on_link_menu: impl Fn(&str, gpui_kit::Point<gpui_kit::Pixels>, &mut Window, &mut App) + Send + Sync + 'static,
+    ) -> Self {
+        self.on_link_menu = Some(Arc::new(on_link_menu));
+        self
     }
 
     pub fn on_link(mut self, on_link: impl Fn(&str, &mut Window, &mut App) + Send + Sync + 'static) -> Self {
@@ -243,11 +333,26 @@ impl Markdown {
 impl RenderOnce for Markdown {
     fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
         let size = cx.scale().body;
-        let on_link = self.on_link;
-        div().text_size(size).child(
+        let (on_link, on_link_menu) = (self.on_link, self.on_link_menu);
+        let clicks = on_link.is_some() || on_link_menu.is_some();
+        div().when(!self.inherit_size, |text| text.text_size(size)).child(
             TextView::markdown(self.id, self.text)
-                .selectable(true)
-                .when_some(on_link, |view, on_link| view.on_link_click(move |url, _, window, cx| on_link(url, window, cx))),
+                .selectable(self.selectable)
+                .when_some(self.extensions, |view, extensions| view.markdown_extensions(extensions))
+                .when(clicks, |view| {
+                    view.on_link_click(move |url, event, window, cx| match (event, &on_link_menu) {
+                        (gpui_kit::ClickEvent::Mouse(click), Some(menu))
+                            if click.up.button == gpui_kit::MouseButton::Right =>
+                        {
+                            menu(url, click.up.position, window, cx)
+                        }
+                        _ => {
+                            if let Some(on_link) = &on_link {
+                                on_link(url, window, cx)
+                            }
+                        }
+                    })
+                }),
         )
     }
 }

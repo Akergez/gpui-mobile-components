@@ -24,6 +24,7 @@ pub struct AppFrame {
     content: Option<AnyElement>,
     edge_to_edge: bool,
     title_bar: bool,
+    under_status_bar: bool,
 }
 
 impl AppFrame {
@@ -35,7 +36,14 @@ impl AppFrame {
 
     /// A frame whose title bar shows `title`.
     pub fn new(title: impl Into<SharedString>) -> Self {
-        AppFrame { title: title.into(), bar: None, content: None, edge_to_edge: false, title_bar: true }
+        AppFrame {
+            title: title.into(),
+            bar: None,
+            content: None,
+            edge_to_edge: false,
+            title_bar: true,
+            under_status_bar: false,
+        }
     }
 
     /// What the title bar holds after the title on a desktop: a search box,
@@ -68,13 +76,29 @@ impl AppFrame {
     }
 }
 
+impl AppFrame {
+    /// Says that the content draws its own top, under the status bar, and
+    /// keeps clear of it itself: an application with a title bar of its
+    /// own. The frame then draws no bar and no strip; it is the window's
+    /// colours and its layers.
+    pub fn under_status_bar(mut self, under_status_bar: bool) -> Self {
+        self.under_status_bar = under_status_bar;
+        if under_status_bar {
+            self.title_bar = false;
+        }
+        self
+    }
+}
+
 impl RenderOnce for AppFrame {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let env = Env::of(window, cx);
         let insets = Insets::of(window);
         let theme = cx.theme();
         let (background, foreground, muted) = (theme.background, theme.foreground, theme.muted_foreground);
-        let top: AnyElement = if env.input() == InputMode::Touch && gpui_kit::is_mobile() {
+        let top: AnyElement = if self.under_status_bar {
+            div().into_any_element()
+        } else if env.input() == InputMode::Touch && gpui_kit::is_mobile() {
             div().flex_none().h(insets.top).into_any_element()
         } else if !self.title_bar {
             div().into_any_element()

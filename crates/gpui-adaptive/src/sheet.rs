@@ -49,6 +49,18 @@ const GAP_ABOVE: f32 = 2.0;
 /// Opening, closing and inspecting sheets.
 pub struct Sheet;
 
+/// How a sheet with a title is shown: [`Sheet::open_with`].
+#[derive(Clone, Debug, Default)]
+pub struct SheetOptions {
+    /// What it is, over its content: "Settings", "Browse channels".
+    pub title: Option<SharedString>,
+    /// How wide the dialog is on a pointer; a sheet is the window's width.
+    pub width: Option<gpui_kit::Rems>,
+    /// Whether a pointer's dialog has no close button, for content that has
+    /// its own way out (a switcher that closes on a choice or on Escape).
+    pub no_close_button: bool,
+}
+
 impl Sheet {
     /// Opens `content` over the page: a bottom sheet over any that is open
     /// (touch), or a dialog (pointer). `content` draws its own title and its
@@ -60,6 +72,31 @@ impl Sheet {
             InputMode::Pointer => {
                 gpui_android_glue::back::open_dialog(window, cx, move |dialog, _, _| {
                     dialog.child(content.clone())
+                });
+            }
+        }
+    }
+
+    /// Opens `content` under a title, at a width for a pointer: what a
+    /// panel of the application's own is (its settings, a list to browse).
+    pub fn open_with(content: impl Into<AnyView>, options: SheetOptions, window: &mut Window, cx: &mut App) {
+        let content = content.into();
+        match input_mode(cx) {
+            InputMode::Touch => {
+                let titled = cx.new(|_| Titled { title: options.title, content });
+                open_bottom(titled.into(), window, cx)
+            }
+            InputMode::Pointer => {
+                gpui_android_glue::back::open_dialog(window, cx, move |dialog, window, _| {
+                    let dialog = match options.title.clone() {
+                        Some(title) => dialog.title(title),
+                        None => dialog,
+                    };
+                    let dialog = match options.width {
+                        Some(width) => dialog.w(width.to_pixels(window.rem_size())),
+                        None => dialog,
+                    };
+                    dialog.close_button(!options.no_close_button).child(content.clone())
                 });
             }
         }
@@ -97,6 +134,25 @@ impl Sheet {
     }
 }
 
+/// Content under a title, in a sheet.
+struct Titled {
+    title: Option<SharedString>,
+    content: AnyView,
+}
+
+impl Render for Titled {
+    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let scale = cx.scale();
+        v_flex()
+            .flex_grow(1.)
+            .min_h_0()
+            .when_some(self.title.clone(), |sheet, title| {
+                sheet.child(div().flex_none().px_4().pb_3().text_size(scale.title).child(title))
+            })
+            .child(v_flex().flex_grow(1.).min_h_0().child(self.content.clone()))
+    }
+}
+
 /// A list of commands in a sheet.
 struct ActionList {
     title: Option<SharedString>,
@@ -119,6 +175,9 @@ impl Render for ActionList {
                 .when(danger, |row| row.text_color(palette.error))
                 .children(command.icon_ref().cloned())
                 .child(div().flex_1().child(command.label().clone()))
+                .when(command.is_checked() == Some(true), |row| {
+                    row.child(gpui_kit::component::Icon::new(gpui_kit::component::IconName::Check))
+                })
                 .on_click(move |_, window, cx| {
                     let chosen = chosen.clone();
                     Sheet::close(window, cx);

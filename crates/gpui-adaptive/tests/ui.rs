@@ -816,3 +816,82 @@ fn the_colours_by_role_follow_the_skin(cx: &mut TestAppContext) {
         assert_eq!((colors.text, colors.mine), (theme.foreground, theme.secondary));
     });
 }
+
+// A field that drives a list takes the keys that move through it first.
+
+struct Search {
+    field: Entity<gpui_adaptive::TextFieldState>,
+    ups: Rc<Cell<u32>>,
+}
+
+impl Render for Search {
+    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+        let ups = self.ups.clone();
+        AppFrame::new("Search").child(gpui_adaptive::TextField::new(&self.field).on_key(move |key, _, _| {
+            if key != gpui_adaptive::FieldKey::Up {
+                return false;
+            }
+            ups.set(ups.get() + 1);
+            true
+        }))
+    }
+}
+
+#[gpui_kit::test]
+fn a_field_offers_the_keys_that_move_a_list_before_the_text(cx: &mut TestAppContext) {
+    use gpui_kit::component::input::{MoveDown, MoveUp};
+    setup(InputMode::Pointer, cx);
+    let ups = Rc::new(Cell::new(0));
+    let shared = ups.clone();
+    let (handle, view) = open(DESKTOP, cx, move |window, cx| Search {
+        field: cx.new(|cx| gpui_adaptive::TextFieldState::new(gpui_adaptive::Purpose::Plain, window, cx)),
+        ups: shared,
+    });
+    cx.update_window(handle, |_, window, cx| {
+        window.render_frame(cx);
+        let field = view.read(cx).field.clone();
+        field.update(cx, |field, cx| field.focus(window, cx));
+        window.render_frame(cx);
+        window.dispatch_action(Box::new(MoveUp), cx);
+        // Not taken: it goes on to the text, and is not counted.
+        window.dispatch_action(Box::new(MoveDown), cx);
+    })
+    .unwrap();
+    assert_eq!(ups.get(), 1);
+}
+
+// Commands at a point where there is no button: a link's menu.
+
+struct LinkPage;
+
+impl Render for LinkPage {
+    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+        AppFrame::new("Page").child(div().child("A link"))
+    }
+}
+
+fn a_menu_opens_at_a_point(input: InputMode, window_size: (f32, f32), cx: &mut TestAppContext) -> bool {
+    setup(input, cx);
+    let (handle, _) = open(window_size, cx, |_, _| LinkPage);
+    cx.update_window(handle, |_, window, cx| {
+        window.render_frame(cx);
+        let commands = vec![Command::new("open", "Open link"), Command::new("copy", "Copy link")];
+        gpui_adaptive::Menu::open_at(None, commands, gpui_kit::point(px(100.), px(100.)), window, cx);
+        window.render_frame(cx);
+        match input {
+            InputMode::Pointer => gpui_adaptive::Menu::is_open_at(window, cx),
+            InputMode::Touch => Sheet::is_open(window, cx),
+        }
+    })
+    .unwrap()
+}
+
+#[gpui_kit::test]
+fn a_menu_at_a_point_is_a_popup_on_a_pointer(cx: &mut TestAppContext) {
+    assert!(a_menu_opens_at_a_point(InputMode::Pointer, DESKTOP, cx));
+}
+
+#[gpui_kit::test]
+fn a_menu_at_a_point_is_a_sheet_on_a_phone(cx: &mut TestAppContext) {
+    assert!(a_menu_opens_at_a_point(InputMode::Touch, PHONE, cx));
+}

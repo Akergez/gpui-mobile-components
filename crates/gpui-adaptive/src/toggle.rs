@@ -85,11 +85,20 @@ impl RenderOnce for Toggle {
             .child(div().text_size(scale.body).child(self.label.clone()))
             .children(self.description.clone().map(|d| div().text_size(scale.small).text_color(muted).child(d)));
         match env.input() {
-            InputMode::Pointer if !self.immediate => Checkbox::new(self.id)
-                .checked(self.on)
-                .label(self.label)
-                .disabled(self.disabled)
-                .on_click(change)
+            // The description under the label, where the box's own label
+            // ends: what the option means is read with it.
+            InputMode::Pointer if !self.immediate => v_flex()
+                .gap_0p5()
+                .child(
+                    Checkbox::new(self.id)
+                        .checked(self.on)
+                        .label(self.label)
+                        .disabled(self.disabled)
+                        .on_click(change),
+                )
+                .children(self.description.map(|d| {
+                    div().pl(gpui_kit::rems(1.5)).text_size(scale.small).text_color(muted).child(d)
+                }))
                 .into_any_element(),
             InputMode::Pointer => h_flex()
                 .w_full()

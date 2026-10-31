@@ -18,8 +18,9 @@ use std::rc::Rc;
 
 use gpui_kit::component::button::{Button, ButtonVariants};
 use gpui_kit::component::menu::{PopupMenu, PopupMenuItem};
-use gpui_kit::component::{Disableable, Icon, Sizable};
-use gpui_kit::{Action, App, ElementId, SharedString, Window};
+use gpui_kit::component::{Disableable, Icon, Selectable as _, Sizable};
+use gpui_kit::prelude::*;
+use gpui_kit::{Action, App, ElementId, RenderOnce, SharedString, Window};
 
 use crate::env::{Env, InputMode};
 
@@ -53,6 +54,7 @@ pub struct Command {
     trigger: Option<Trigger>,
     role: CommandRole,
     disabled: bool,
+    checked: Option<bool>,
 }
 
 impl Clone for Command {
@@ -65,6 +67,7 @@ impl Clone for Command {
             trigger: self.trigger.clone(),
             role: self.role,
             disabled: self.disabled,
+            checked: self.checked,
         }
     }
 }
@@ -81,6 +84,7 @@ impl Command {
             trigger: None,
             role: CommandRole::Normal,
             disabled: false,
+            checked: None,
         }
     }
 
@@ -119,6 +123,19 @@ impl Command {
     pub fn disabled(mut self, disabled: bool) -> Self {
         self.disabled = disabled;
         self
+    }
+
+    /// A command that is a state as well as an action: "Mute", a priority
+    /// among several. Shown checked in a menu and a sheet, selected as a
+    /// button.
+    pub fn checked(mut self, checked: bool) -> Self {
+        self.checked = Some(checked);
+        self
+    }
+
+    /// Whether the command is a state, and if so whether it is on.
+    pub fn is_checked(&self) -> Option<bool> {
+        self.checked
     }
 
     pub fn id(&self) -> &ElementId {
@@ -164,6 +181,7 @@ impl Command {
         let button = Button::new(self.id.clone())
             .label(self.label.clone())
             .disabled(self.disabled)
+            .selected(self.checked == Some(true))
             .on_click(move |_, window, cx| command.run(window, cx));
         let button = match self.icon.clone() {
             Some(icon) => button.icon(icon),
@@ -181,19 +199,26 @@ impl Command {
     }
 
     /// The command as an icon alone, its label in the tooltip (with the key
-    /// binding, when it has an action). Falls back to the label when it has
-    /// no icon.
+    /// binding, when it has an action): ghost, filled when it is primary or
+    /// destructive. Falls back to the label when it has no icon.
     pub fn icon_button(&self, env: Env) -> Button {
         let Some(icon) = self.icon.clone() else {
             return self.button(env).ghost();
         };
         let command = self.clone();
         let button = Button::new(self.id.clone())
-            .ghost()
             .icon(icon)
             .disabled(self.disabled)
+            .selected(self.checked == Some(true))
             .accessibility_label(self.label.clone())
             .on_click(move |_, window, cx| command.run(window, cx));
+        // Ghost unless it is the page's one primary command or it destroys:
+        // those are filled, so that they read as what they are.
+        let button = match self.role {
+            CommandRole::Primary => button.primary(),
+            CommandRole::Destructive => button.danger(),
+            _ => button.ghost(),
+        };
         let button = match &self.action {
             Some(action) => button.tooltip_with_action(self.label.clone(), action.as_ref(), None),
             None => button.tooltip(self.label.clone()),
@@ -205,32 +230,77 @@ impl Command {
     }
 
     /// Adds the command to a popup menu: with its key binding when it has an
-    /// action, as a plain item when it calls a closure.
+    /// action, checked when it is a state.
     pub fn add_to(&self, menu: PopupMenu) -> PopupMenu {
-        if self.trigger.is_none()
-            && let (Some(action), Some(icon)) = (&self.action, &self.icon)
-        {
-            return menu.menu_with_icon_and_disabled(
-                self.label.clone(),
-                icon.clone(),
-                action.boxed_clone(),
-                self.disabled,
-            );
-        }
-        if self.trigger.is_none()
-            && let Some(action) = &self.action
-        {
-            return menu.menu_with_disabled(self.label.clone(), action.boxed_clone(), self.disabled);
-        }
-        let command = self.clone();
         let item = PopupMenuItem::new(self.label.clone())
             .disabled(self.disabled)
-            .on_click(move |_, window, cx| command.run(window, cx));
+            .checked(self.checked == Some(true));
         let item = match self.icon.clone() {
             Some(icon) => item.icon(icon),
             None => item,
         };
+        let item = match (&self.trigger, &self.action) {
+            (None, Some(action)) => item.action(action.boxed_clone()),
+            _ => {
+                let command = self.clone();
+                item.on_click(move |_, window, cx| command.run(window, cx))
+            }
+        };
         menu.item(item)
+    }
+}
+
+impl Command {
+    /// The command as a button in the layout, drawn for the skin it is
+    /// drawn in: [`Self::button`] without having to ask for the [`Env`].
+    pub fn as_button(self) -> CommandButton {
+        CommandButton { command: self, icon_only: false, ghost: false, full_width: false, dense: false }
+    }
+
+    /// The command as an icon in the layout: [`Self::icon_button`].
+    pub fn as_icon_button(self) -> CommandButton {
+        CommandButton { command: self, icon_only: true, ghost: true, full_width: false, dense: false }
+    }
+}
+
+/// A [`Command`] placed in the layout as a button.
+#[derive(IntoElement)]
+pub struct CommandButton {
+    command: Command,
+    icon_only: bool,
+    ghost: bool,
+    full_width: bool,
+    dense: bool,
+}
+
+impl CommandButton {
+    /// Without a fill until hovered: a toolbar's button among others.
+    pub fn ghost(mut self) -> Self {
+        self.ghost = true;
+        self
+    }
+
+    /// Smaller on a pointer, inside a chip or a dense row: an attachment's
+    /// "Remove". A finger's target does not shrink.
+    pub fn dense(mut self) -> Self {
+        self.dense = true;
+        self
+    }
+
+    /// As wide as what holds it: a form's one commitment on a phone.
+    pub fn full_width(mut self) -> Self {
+        self.full_width = true;
+        self
+    }
+}
+
+impl RenderOnce for CommandButton {
+    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
+        let env = Env::of(window, cx);
+        let button = if self.icon_only { self.command.icon_button(env) } else { self.command.button(env) };
+        let button = if self.ghost && self.command.role == CommandRole::Normal { button.ghost() } else { button };
+        let button = if self.dense && !env.is_touch() { button.xsmall() } else { button };
+        if self.full_width { button.w_full() } else { button }
     }
 }
 

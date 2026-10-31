@@ -23,7 +23,7 @@ ListRow::new(("channel", channel.id), channel.name())
     )
 ```
 
-[ListRow](list.md) attaches them itself. For any other pressable surface, use `actions.attach(stateful_div, env, cx)`, or `actions.open_sheet(window, cx)` to open the sheet directly.
+[ListRow](list.md) attaches them itself. For any other pressable surface, use `actions.attach(stateful_div, env, cx)` (or `actions.wrap(stateful_div, cx)` where there is no window at hand), or `actions.open_sheet(window, cx)` to open the sheet directly. `.inline()` is for an item among others on a line, a folder's tab in a strip: it keeps its own width instead of its row's.
 
 ## Rules
 

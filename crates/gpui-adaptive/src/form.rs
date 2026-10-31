@@ -20,8 +20,9 @@ use gpui_kit::component::button::{Button, ButtonVariants};
 use gpui_kit::component::dialog::{DialogAction, DialogClose, DialogFooter};
 use gpui_kit::component::{ActiveTheme, Sizable, h_flex, v_flex};
 use gpui_kit::prelude::*;
-use gpui_kit::{AnyView, App, Context, FocusHandle, Render, SharedString, Window, div};
+use gpui_kit::{AnyView, App, Context, FocusHandle, Render, Rems, SharedString, Window, div};
 
+use crate::command::Command;
 use crate::env::{InputMode, input_mode};
 use crate::insets::Insets;
 use crate::scale::ActiveScale;
@@ -35,13 +36,23 @@ pub struct Form {
     fields: AnyView,
     commit_label: SharedString,
     commit: Option<Commit>,
+    also: Option<Command>,
+    width: Option<Rems>,
     first: Option<FocusHandle>,
 }
 
 impl Form {
     /// `fields` is the owner's view of the fields.
     pub fn new(title: impl Into<SharedString>, fields: impl Into<AnyView>) -> Self {
-        Form { title: title.into(), fields: fields.into(), commit_label: "Save".into(), commit: None, first: None }
+        Form {
+            title: title.into(),
+            fields: fields.into(),
+            commit_label: "Save".into(),
+            commit: None,
+            also: None,
+            width: None,
+            first: None,
+        }
     }
 
     /// The one commitment: its label ("Add expense") and what it does,
@@ -54,6 +65,20 @@ impl Form {
     ) -> Self {
         self.commit_label = label.into();
         self.commit = Some(Rc::new(commit));
+        self
+    }
+
+    /// A second, lesser thing to do instead of committing: "Clear status".
+    /// Choosing it closes the form, then runs it.
+    pub fn also(mut self, command: Command) -> Self {
+        self.also = Some(command);
+        self
+    }
+
+    /// How wide the dialog is on a pointer, for fields that want the room.
+    /// A sheet is the window's width.
+    pub fn width(mut self, width: Rems) -> Self {
+        self.width = Some(width);
         self
     }
 
@@ -92,7 +117,7 @@ impl Form {
 const DIALOG_RESTS_AT: f32 = 0.1;
 
 fn open_dialog(form: Form, window: &mut Window, cx: &mut App) {
-    let Form { title, fields, commit_label, commit, .. } = form;
+    let Form { title, fields, commit_label, commit, also, width, .. } = form;
     gpui_android_glue::back::open_dialog(window, cx, move |dialog, window, _| {
         // With a keyboard up (a tablet), the dialog moves to the top of what
         // is left and its fields scroll inside that.
@@ -106,14 +131,28 @@ fn open_dialog(form: Form, window: &mut Window, cx: &mut App) {
             .max_h(room)
             .overflow_y_scroll()
             .child(fields.clone());
+        let also = also.clone().map(|command| {
+            let run = command.clone();
+            let button = Button::new("form-also").label(command.label().clone()).on_click(move |_, window, cx| {
+                let run = run.clone();
+                Form::close(window, cx);
+                window.defer(cx, move |window, cx| run.run(window, cx));
+            });
+            if command.is_destructive() { button.danger() } else { button }
+        });
         let footer = match commit.clone() {
             Some(_) => DialogFooter::new()
+                .children(also)
                 .child(DialogClose::new().child(Button::new("form-cancel").label("Cancel")))
                 .child(DialogAction::new().child(Button::new("form-commit").label(commit_label.clone()).primary())),
             None => DialogFooter::new()
                 .child(DialogClose::new().child(Button::new("form-done").label("Done").primary())),
         };
         let commit = commit.clone();
+        let dialog = match width {
+            Some(width) => dialog.w(width.to_pixels(window.rem_size())),
+            None => dialog,
+        };
         dialog
             .margin_top(top)
             .title(title.clone())
@@ -144,6 +183,16 @@ impl Render for FormSheet {
                 })
         });
         let dismiss = if commit.is_some() { "Cancel" } else { "Done" };
+        let also = self.form.also.clone().map(|command| {
+            let button = Button::new("form-also").label(command.label().clone()).ghost().large().on_click(
+                move |_, window, cx| {
+                    let run = command.clone();
+                    Sheet::close(window, cx);
+                    window.defer(cx, move |window, cx| run.run(window, cx));
+                },
+            );
+            if self.form.also.as_ref().is_some_and(Command::is_destructive) { button.danger() } else { button }
+        });
         v_flex()
             .flex_grow(1.)
             .min_h_0()
@@ -154,6 +203,7 @@ impl Render for FormSheet {
                     .pb_3()
                     .gap_2()
                     .child(div().flex_1().text_size(scale.title).child(self.form.title.clone()))
+                    .children(also)
                     .child(Button::new("form-cancel").label(dismiss).ghost().large().on_click(|_, window, cx| {
                         Sheet::close(window, cx)
                     }))

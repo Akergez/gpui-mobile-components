@@ -28,6 +28,7 @@ pub struct ItemActions {
     title: Option<SharedString>,
     quick: Vec<Command>,
     commands: Vec<Command>,
+    inline: bool,
 }
 
 impl ItemActions {
@@ -52,6 +53,13 @@ impl ItemActions {
         self
     }
 
+    /// The item sits among others on a line (a folder's tab in a strip):
+    /// its own width, rather than its row's.
+    pub fn inline(mut self) -> Self {
+        self.inline = true;
+        self
+    }
+
     pub fn is_empty(&self) -> bool {
         self.quick.is_empty() && self.commands.is_empty()
     }
@@ -67,6 +75,13 @@ impl ItemActions {
     /// Opens the commands as a sheet now: what a long press does.
     pub fn open_sheet(&self, window: &mut Window, cx: &mut App) {
         Sheet::actions(self.title.clone(), self.all(), window, cx);
+    }
+
+    /// [`Self::attach`] where there is no window at hand: the width does not
+    /// matter to what is attached, only the input does.
+    pub fn wrap(self, item: Stateful<Div>, cx: &App) -> AnyElement {
+        let env = Env::new(crate::env::input_mode(cx), crate::env::WidthClass::Expanded);
+        self.attach(item, env, cx)
     }
 
     /// Attaches the commands to `item`, the pressable surface of the item.
@@ -102,7 +117,8 @@ impl ItemActions {
                 let item = item.group(group).relative().children(bar).test_support();
                 div()
                     .id((id, "actions"))
-                    .w_full()
+                    .when(self.inline, |holder| holder.flex_none())
+                    .when(!self.inline, |holder| holder.w_full())
                     .child(item)
                     .context_menu(move |menu, _, _| all.iter().fold(menu, |menu, command| command.add_to(menu)))
                     .into_any_element()

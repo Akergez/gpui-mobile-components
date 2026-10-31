@@ -4,7 +4,7 @@
 
 | | Pointer | Touch |
 |---|---|---|
-| in a form (committed with it) | gpui-kit `Checkbox` with its label | `Switch` at the end of a row; the whole row is the target |
+| in a form (committed with it) | gpui-kit `Checkbox` with its label, the description under it | `Switch` at the end of a row; the whole row is the target |
 | `immediate(true)` (a setting that acts at once) | the label and description, a `Switch` at the end | the same row |
 
 ## API

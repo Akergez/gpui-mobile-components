@@ -61,6 +61,8 @@ gpui_kit::application().with_assets(gpui_kit::assets::Assets).run(|cx| {
 **Actions**
 - [Command](components/command.md): one action, many entry points
 - [ItemActions](components/item-actions.md): hover bar and context menu, or long press
+- [Menu](components/menu.md): commands behind a button, or at a point
+- [Popup](components/popup.md): something small beside what opened it
 - [Confirm](components/confirm.md): a question before something irreversible
 - [Ask](components/ask.md): a question with a few answers, in the flow or in a dialog
 - [Notice](components/notice.md): a toast or a snackbar, with Undo
@@ -109,6 +111,10 @@ Some parts serve one application. It builds them itself, from the intents and th
 | Task board (`ui/board.rs`) | aiddiction | `surface(Panel)`/`surface(Card)`, `scroll_x`, [ItemActions](components/item-actions.md); [Route](components/navigator.md)`::scrolls_sideways` so swipe back does not take the board's direction |
 | Diff review | aiddiction | `diffreview-ui`, a view of its own embedded in a [Screen](components/screen.md) |
 | Charts | money-manager | gpui-kit `chart`; [Segments](components/segments.md) for the month |
+| A conversation's feed and its messages | matterfast | gpui `list` with `list_scrollbar`, `Markdown` with its own plugins (custom emoji, mentions) and `on_link_menu` → [Menu](components/menu.md)`::open_at`; hover bar of `pressable`s and [Popup](components/popup.md)s; a long press's [Sheet](components/sheet.md) |
+| The composers, the quick switcher, the title bar's search | matterfast | [TextField](components/text-field.md) with `on_key` driving its own completion list, `on_paste`, the cursor and the selection |
+| An integration's buttons and selects on a card | matterfast | [Command](components/command.md) buttons; the integration's own colour as text on a wash of itself (a `div` with tokens); [Menu](components/menu.md)`::choice` |
+| The call dock, the lightbox, the emoji picker | matterfast | `pressable`, `tooltip`, [Popup](components/popup.md), [Sheet](components/sheet.md), [Avatar](components/identity.md) |
 
 ## Not done yet
 
