@@ -27,6 +27,12 @@ pub struct AppFrame {
 }
 
 impl AppFrame {
+    /// How a window with a frame is opened: without the system's
+    /// decorations, the frame draws the title bar.
+    pub fn window_options() -> gpui_kit::WindowOptions {
+        gpui_kit::component::TitleBar::window_options()
+    }
+
     /// A frame whose title bar shows `title`.
     pub fn new(title: impl Into<SharedString>) -> Self {
         AppFrame { title: title.into(), bar: None, content: None, edge_to_edge: false, title_bar: true }

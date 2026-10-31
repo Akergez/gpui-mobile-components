@@ -1,5 +1,7 @@
 //! Lists: [`ListRow`], [`SectionHeader`] and the [`Collection`] they scroll
-//! in.
+//! in. A grouped list (an inbox by what each conversation needs, records by
+//! day) is a collection of [`Collection::section`]s: the grouping is said
+//! once, and each skin draws it its way.
 //!
 //! **Pointer**: dense rows (1.75 rem, 2.75 with a second line) with the
 //! theme's hover, keyboard-free to the row itself, commands on hover and on
@@ -15,10 +17,12 @@
 
 use std::rc::Rc;
 
-use gpui_kit::component::{ActiveTheme, v_flex};
+use gpui_kit::component::spinner::Spinner;
+use gpui_kit::component::{ActiveTheme, Icon, IconName, Sizable, h_flex, v_flex};
 use gpui_kit::prelude::*;
-use gpui_kit::{AnyElement, App, ElementId, FontWeight, MouseButton, RenderOnce, SharedString, Window, div};
+use gpui_kit::{AnyElement, App, ElementId, FontWeight, MouseButton, Rems, RenderOnce, SharedString, Window, div, px, rems};
 
+use crate::banner::Tone;
 use crate::env::{Env, InputMode};
 use crate::item_actions::ItemActions;
 use crate::palette::ActivePalette;
@@ -27,6 +31,18 @@ use crate::touch;
 
 type Activate = Rc<dyn Fn(&mut Window, &mut App)>;
 
+/// What a row's state asks of the person, seen at a glance down the list.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Signal {
+    /// It waits on the person: an agent's question (`Warning`), a failure
+    /// (`Danger`).
+    Waiting(Tone),
+    /// Something is working on it now.
+    Busy,
+    /// Something new in it the person has not seen.
+    New,
+}
+
 /// One item of a list.
 #[derive(IntoElement)]
 pub struct ListRow {
@@ -34,7 +50,10 @@ pub struct ListRow {
     leading: Option<AnyElement>,
     title: SharedString,
     subtitle: Option<SharedString>,
+    supporting: Option<SharedString>,
+    supporting_tone: Option<Tone>,
     trailing: Option<AnyElement>,
+    signal: Option<Signal>,
     body: Option<AnyElement>,
     selected: bool,
     unread: bool,
@@ -50,7 +69,10 @@ impl ListRow {
             leading: None,
             title: title.into(),
             subtitle: None,
+            supporting: None,
+            supporting_tone: None,
             trailing: None,
+            signal: None,
             body: None,
             selected: false,
             unread: false,
@@ -71,6 +93,28 @@ impl ListRow {
         self
     }
 
+    /// A third line under the subtitle: the last message of a conversation,
+    /// what went wrong in it.
+    pub fn supporting(mut self, supporting: impl Into<SharedString>) -> Self {
+        self.supporting = Some(supporting.into());
+        self
+    }
+
+    /// Says the supporting line in a tone: `Danger` for an error, with its
+    /// icon.
+    pub fn supporting_tone(mut self, tone: Tone) -> Self {
+        self.supporting_tone = Some(tone);
+        self
+    }
+
+    /// The row's state: see [`Signal`]. **Pointer**: a stripe down the row's
+    /// edge for what waits or works, and a dot or a spinner under the
+    /// trailing text. **Touch**: the dot or the spinner only.
+    pub fn signal(mut self, signal: Option<Signal>) -> Self {
+        self.signal = signal;
+        self
+    }
+
     /// What ends the row: a time, an amount, a [`crate::Count`].
     pub fn trailing(mut self, trailing: impl IntoElement) -> Self {
         self.trailing = Some(trailing.into_any_element());
@@ -86,7 +130,9 @@ impl ListRow {
         self
     }
 
-    /// The row is the one open now.
+    /// The row is the one open now, beside the list. A compact window shows
+    /// one page at a time, so there it is not marked: the list is all there
+    /// is (and is what back's gesture shows under the page).
     pub fn selected(mut self, selected: bool) -> Self {
         self.selected = selected;
         self
@@ -124,7 +170,13 @@ impl RenderOnce for ListRow {
         let theme = cx.theme();
         let touch = env.input() == InputMode::Touch;
         let has_body = self.body.is_some();
-        let height = if self.subtitle.is_some() { scale.row_two_line } else { scale.row };
+        // Over two lines the row's parts line up at its top.
+        let tall = has_body || self.supporting.is_some();
+        let height = match (&self.subtitle, &self.supporting) {
+            (_, Some(_)) => rems(scale.row_two_line.0 + if touch { 1.25 } else { 1. }),
+            (Some(_), None) => scale.row_two_line,
+            (None, None) => scale.row,
+        };
         let (selected_bg, selected_fg, muted_fg) = if touch {
             (palette.secondary_container, palette.on_secondary_container, palette.on_surface_variant)
         } else {
@@ -142,6 +194,21 @@ impl RenderOnce for ListRow {
             .children(self.subtitle.map(|subtitle| {
                 div().truncate().text_size(scale.small).text_color(muted_fg).child(subtitle)
             }))
+            .children(self.supporting.map(|supporting| {
+                let tone = self.supporting_tone;
+                let color = tone.map_or(muted_fg, |tone| tone.color(cx));
+                let icon = match tone {
+                    Some(Tone::Danger) => Some(IconName::CircleX),
+                    Some(Tone::Warning) => Some(IconName::TriangleAlert),
+                    _ => None,
+                };
+                h_flex()
+                    .gap_1p5()
+                    .text_size(scale.small)
+                    .text_color(color)
+                    .children(icon.map(|icon| Icon::new(icon).xsmall()))
+                    .child(div().flex_1().min_w_0().truncate().child(supporting))
+            }))
             .children(self.body.map(|body| {
                 // The row opens on a click it gets the press of; a press in
                 // the body stops here.
@@ -150,18 +217,42 @@ impl RenderOnce for ListRow {
                     .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                     .child(body)
             }));
+        let signal_color = |signal: Signal| match signal {
+            Signal::Waiting(tone) => tone.color(cx),
+            Signal::Busy | Signal::New => if touch { palette.primary } else { theme.primary },
+        };
+        let indicator = self.signal.map(|signal| match signal {
+            Signal::Busy => Spinner::new().xsmall().into_any_element(),
+            _ => div().size(rems(0.5)).rounded_full().bg(signal_color(signal)).into_any_element(),
+        });
+        let stripe = self.signal.filter(|signal| !touch && *signal != Signal::New).map(|signal| {
+            div().absolute().left(px(2.)).top_2().bottom_2().w(px(3.)).rounded_full().bg(signal_color(signal))
+        });
+        let trailing = (self.trailing.is_some() || indicator.is_some()).then(|| {
+            v_flex()
+                .flex_none()
+                .items_end()
+                .gap_1p5()
+                .text_size(scale.small)
+                .text_color(muted_fg)
+                .children(self.trailing)
+                .children(indicator)
+        });
         let on_activate = self.on_activate.clone();
         let row = touch::pressable(self.id, env, cx)
             .w_full()
             .min_h(height)
             .when(touch, |row| row.px_4().gap_4().py_2())
             .when(!touch, |row| row.px_2().gap_2().rounded(scale.radius_control))
-            .when(has_body, |row| row.items_start())
-            .when(self.selected, |row| row.bg(selected_bg).text_color(selected_fg))
+            .relative()
+            .when(tall, |row| row.items_start())
+            .when(tall && !touch, |row| row.py_1p5())
+            .when(self.selected && !env.is_compact(), |row| row.bg(selected_bg).text_color(selected_fg))
             .when(self.muted, |row| row.opacity(0.55))
             .children(self.leading)
+            .children(stripe)
             .child(text)
-            .children(self.trailing.map(|trailing| div().flex_none().text_size(scale.small).child(trailing)))
+            .children(trailing)
             .when_some(on_activate, |row, on_activate| row.on_click(move |_, window, cx| on_activate(window, cx)));
         self.actions.attach(row, env, cx)
     }
@@ -171,11 +262,19 @@ impl RenderOnce for ListRow {
 #[derive(IntoElement)]
 pub struct SectionHeader {
     title: SharedString,
+    tone: Option<Tone>,
 }
 
 impl SectionHeader {
     pub fn new(title: impl Into<SharedString>) -> Self {
-        SectionHeader { title: title.into() }
+        SectionHeader { title: title.into(), tone: None }
+    }
+
+    /// A heading that says something about its rows: "Needs you" in the
+    /// warning colour.
+    pub fn tone(mut self, tone: Tone) -> Self {
+        self.tone = Some(tone);
+        self
     }
 }
 
@@ -183,6 +282,7 @@ impl RenderOnce for SectionHeader {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let env = Env::of(window, cx);
         let scale = cx.scale();
+        let tone = self.tone.map(|tone| tone.color(cx));
         match env.input() {
             InputMode::Pointer => div()
                 .px_2()
@@ -190,7 +290,7 @@ impl RenderOnce for SectionHeader {
                 .pb_1()
                 .text_size(scale.small)
                 .font_weight(FontWeight::SEMIBOLD)
-                .text_color(cx.theme().muted_foreground)
+                .text_color(tone.unwrap_or(cx.theme().muted_foreground))
                 .child(self.title),
             InputMode::Touch => div()
                 .px_4()
@@ -198,24 +298,25 @@ impl RenderOnce for SectionHeader {
                 .pb_1()
                 .text_size(scale.small)
                 .font_weight(FontWeight::SEMIBOLD)
-                .text_color(cx.palette().primary)
+                .text_color(tone.unwrap_or(cx.palette().primary))
                 .child(self.title),
         }
     }
 }
 
-/// Rows in the page's scroll area: a [`ListRow`] after another, with
-/// [`SectionHeader`]s between runs.
+/// Rows in the page's scroll area: [`ListRow`]s one after another, or in
+/// [`Collection::section`]s under their headings.
 #[derive(IntoElement)]
 pub struct Collection {
     id: ElementId,
     children: Vec<AnyElement>,
     scrolls: bool,
+    boxed: Option<Rems>,
 }
 
 impl Collection {
     pub fn new(id: impl Into<ElementId>) -> Self {
-        Collection { id: id.into(), children: Vec::new(), scrolls: false }
+        Collection { id: id.into(), children: Vec::new(), scrolls: false, boxed: None }
     }
 
     pub fn child(mut self, child: impl IntoElement) -> Self {
@@ -228,10 +329,29 @@ impl Collection {
         self
     }
 
+    /// A group of rows under its heading: "Needs you" and the conversations
+    /// that do. A section with no rows is not drawn.
+    pub fn section(mut self, header: SectionHeader, rows: impl IntoIterator<Item = impl IntoElement>) -> Self {
+        let rows: Vec<AnyElement> = rows.into_iter().map(|row| row.into_any_element()).collect();
+        if !rows.is_empty() {
+            self.children.push(Section { header, rows }.into_any_element());
+        }
+        self
+    }
+
     /// Whether the collection scrolls by itself. Off by default: inside a
     /// [`crate::Screen`] the screen scrolls; a column of its own scrolls.
     pub fn scrolls(mut self, scrolls: bool) -> Self {
         self.scrolls = scrolls;
+        self
+    }
+
+    /// A list inside a form: a framed box of a fixed `height` that scrolls,
+    /// so that the form does not change size (and move its buttons) as the
+    /// rows change.
+    pub fn boxed(mut self, height: Rems) -> Self {
+        self.boxed = Some(height);
+        self.scrolls = true;
         self
     }
 }
@@ -243,6 +363,31 @@ impl RenderOnce for Collection {
             .w_full()
             .when(env.input() == InputMode::Pointer, |list| list.p_1().gap_px())
             .children(self.children);
-        if self.scrolls { touch::scroll_y(self.id, env, list) } else { list.into_any_element() }
+        let list = if self.scrolls { touch::scroll_y(self.id, env, list) } else { list.into_any_element() };
+        match self.boxed {
+            Some(height) => {
+                let scale = cx.scale();
+                div().w_full().h(height).border_1().border_color(cx.theme().border).rounded(scale.radius_control).child(list).into_any_element()
+            }
+            None => list,
+        }
+    }
+}
+
+/// A heading and its rows, kept together.
+#[derive(IntoElement)]
+struct Section {
+    header: SectionHeader,
+    rows: Vec<AnyElement>,
+}
+
+impl RenderOnce for Section {
+    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
+        let env = Env::of(window, cx);
+        v_flex()
+            .w_full()
+            .when(env.input() == InputMode::Pointer, |section| section.gap_px())
+            .child(self.header)
+            .children(self.rows)
     }
 }

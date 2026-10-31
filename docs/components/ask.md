@@ -35,7 +35,9 @@ Ask::new("trust", "Trust this folder?")
     .open(window, cx);
 ```
 
-The tone is `Warning` by default, for asking for permission; use `Info` for an ordinary question. Each answer's element id is its command's id.
+The tone is `Warning` by default, for asking for permission; use `Info` for an ordinary question. The icon follows the tone. Each answer's element id is its command's id.
+
+`.body(element)` puts what is filled in before answering between the question and the answers: aiddiction signs an agent in with an `Ask` whose body is the API key's [TextField](text-field.md) and whose answers are Cancel and Send. An `Ask` without answers is a card that only says something. `open` has no room for a body.
 
 ## Tests
 

@@ -93,6 +93,9 @@ impl ItemActions {
                         .shadow_sm()
                         .opacity(0.)
                         .group_hover(group.clone(), |style| style.opacity(1.))
+                        // A press on a command is the command's: it does not
+                        // open the item under it.
+                        .on_mouse_down(gpui_kit::MouseButton::Left, |_, _, cx| cx.stop_propagation())
                         .children(self.quick.iter().map(|command| command.icon_button(env)))
                 });
                 let all = self.all();

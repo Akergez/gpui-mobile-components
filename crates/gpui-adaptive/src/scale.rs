@@ -50,6 +50,13 @@ pub struct Scale {
     pub body: Rems,
     /// Secondary text: subtitles, metadata.
     pub small: Rems,
+    /// Room between things, from the least (an icon and its label) to the
+    /// most (the parts of a page).
+    pub space_xs: Rems,
+    pub space_s: Rems,
+    pub space_m: Rems,
+    pub space_l: Rems,
+    pub space_xl: Rems,
     /// A page coming in or going.
     pub page: Duration,
     /// A sheet coming up, going down, settling where a drag let it go.
@@ -80,6 +87,11 @@ impl Scale {
             title_root: rems(0.875),
             body: rems(0.8125),
             small: rems(0.75),
+            space_xs: rems(0.25),
+            space_s: rems(0.5),
+            space_m: rems(0.75),
+            space_l: rems(1.),
+            space_xl: rems(1.5),
             page: Duration::from_millis(120),
             sheet_open: Duration::from_millis(160),
             sheet_close: Duration::from_millis(120),
@@ -108,6 +120,11 @@ impl Scale {
             title_root: rems(1.75),
             body: rems(1.),
             small: rems(0.875),
+            space_xs: rems(0.25),
+            space_s: rems(0.5),
+            space_m: rems(1.),
+            space_l: rems(1.5),
+            space_xl: rems(2.),
             page: Duration::from_millis(300),
             sheet_open: Duration::from_millis(260),
             sheet_close: Duration::from_millis(200),

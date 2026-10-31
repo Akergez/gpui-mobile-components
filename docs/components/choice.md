@@ -29,6 +29,9 @@ agent.update(cx, |c, cx| c.set_selected(Some("codex".into()), window, cx));
 
 The backend (gpui-kit `Select` or the touch sheet) is chosen once, in `ChoiceState::new`, from the application's input mode. The state owns the value: it emits `ChoiceEvent::Change(key)` once for each choice the person makes, and never for `set_selected`.
 
+- `ChoiceState::searchable(..)` gives the pointer's select a search field however few the options: for a list that grows with what the person has (aiddiction's projects and agents), so that many are as quick to pick as two.
+- `set_options(options, selected, window, cx)` puts other options in place, without an event: the agents of the project chosen in the field above.
+
 ## When not to use
 
 - 2–4 exclusive modes that are all visible at once: use [Segments](segments.md).

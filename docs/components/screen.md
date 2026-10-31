@@ -34,6 +34,8 @@ Screen::new("project", project.name())
 
 - `.page(&page)` takes the way up and whether the page is a column from the [Navigator](navigator.md). `.up(Option<..>)` sets the way up by hand.
 - `.in_title_bar(true)` draws the page's bar as the window's title bar, as aiddiction does: one row with the window controls, rather than a title bar with the page's bar under it. Use it with `AppFrame::title_bar(false)`. A page shown as a column keeps its bar in the column. A phone in the touch skin keeps its app bar under the status bar, and a desktop preview of the touch skin gets an empty title bar for the window controls. On macOS the traffic lights sit at the left of the page's bar, not at the window's corner, when the page is beside a rail.
+- `.status(Some(("Needs you".into(), Signal::Waiting(Tone::Warning))))` says what the page's subject is doing now. On a pointer it is a tinted pill after the title, with the signal's dot or spinner; on a finger it is not shown, since the page itself says it (the question's card, the stop button).
+- In the title bar the bar is laid over the toolkit's title bar rather than inside it, so that a long subtitle is cut instead of pushing the window's controls out. A column beside such a page has its bar at the title bar's height, in its colours: one strip across the window.
 - `.scrolls(false)` is for content that scrolls in its own way (a feed, a virtual list, a page with a composer at the bottom). The content then fills the page.
 - Element ids: the primary command's id is its own (`"new-task"`), and the bar's buttons are `"up"` and `"more"`.
 

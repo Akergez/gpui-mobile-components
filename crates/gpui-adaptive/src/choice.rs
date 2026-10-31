@@ -97,6 +97,28 @@ impl ChoiceState {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
+        Self::build(options, selected, false, window, cx)
+    }
+
+    /// A choice the pointer finds by typing, however few the options: a
+    /// list that grows with what the person has (projects, agents), so that
+    /// many are as quick to pick as two.
+    pub fn searchable(
+        options: Vec<ChoiceOption>,
+        selected: Option<SharedString>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Self {
+        Self::build(options, selected, true, window, cx)
+    }
+
+    fn build(
+        options: Vec<ChoiceOption>,
+        selected: Option<SharedString>,
+        search: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Self {
         let backend = match input_mode(cx) {
             InputMode::Touch => Backend::Touch,
             InputMode::Pointer => {
@@ -104,7 +126,7 @@ impl ChoiceState {
                     .as_ref()
                     .and_then(|key| options.iter().position(|option| &option.key == key))
                     .map(|row| IndexPath::default().row(row));
-                let searchable = options.len() >= SEARCHABLE_FROM;
+                let searchable = search || options.len() >= SEARCHABLE_FROM;
                 let items = SearchableVec::new(options.clone());
                 let select = cx.new(|cx| SelectState::new(items, index, window, cx).searchable(searchable));
                 let subscription = cx.subscribe(
@@ -141,6 +163,32 @@ impl ChoiceState {
         {
             select.update(cx, |select, cx| select.set_selected_value(&key, window, cx));
         }
+        cx.notify();
+    }
+
+    /// Puts other options in place of these, choosing `selected` among them
+    /// without an event: the agents of the project chosen in the field
+    /// above.
+    pub fn set_options(
+        &mut self,
+        options: Vec<ChoiceOption>,
+        selected: Option<SharedString>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if let Backend::Pointer { select, .. } = &self.backend {
+            let index = selected
+                .as_ref()
+                .and_then(|key| options.iter().position(|option| &option.key == key))
+                .map(|row| IndexPath::default().row(row));
+            let items = SearchableVec::new(options.clone());
+            select.update(cx, |select, cx| {
+                select.set_items(items, window, cx);
+                select.set_selected_index(index, window, cx);
+            });
+        }
+        self.options = options;
+        self.selected = selected;
         cx.notify();
     }
 

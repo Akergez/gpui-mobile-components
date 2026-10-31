@@ -85,7 +85,7 @@ dependencies = [
 [[package]]
 name = "adaptive-colors"
 version = "0.1.0"
-source = "git+https://github.com/Akergez/gpui-adaptive-colors?rev=55e9997f9bf9858f7a9242bcf75a92cf15732596#55e9997f9bf9858f7a9242bcf75a92cf15732596"
+source = "git+https://github.com/Akergez/gpui-adaptive-colors?branch=main#55e9997f9bf9858f7a9242bcf75a92cf15732596"
 dependencies = [
  "jni",
  "material-colors",
@@ -2367,7 +2367,7 @@ dependencies = [
 [[package]]
 name = "gpui-adaptive-colors"
 version = "0.1.0"
-source = "git+https://github.com/Akergez/gpui-adaptive-colors?rev=55e9997f9bf9858f7a9242bcf75a92cf15732596#55e9997f9bf9858f7a9242bcf75a92cf15732596"
+source = "git+https://github.com/Akergez/gpui-adaptive-colors?branch=main#55e9997f9bf9858f7a9242bcf75a92cf15732596"
 dependencies = [
  "adaptive-colors",
  "futures",

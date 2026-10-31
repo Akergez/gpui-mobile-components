@@ -6,10 +6,13 @@ The composer writes a message to someone in a channel (matterfast) or to an agen
 
 | | Pointer | Touch |
 |---|---|---|
-| Tools | icon buttons beside the field | folded into a + that opens them in a [sheet](sheet.md) |
+| Layout | a card: what stands above, the field, then the tools, the hint and send | Material: + for the tools, the field, send |
+| Tools | icon buttons under the field; a menu tool shows what is chosen and opens a menu | folded into a + that opens them in a [sheet](sheet.md); a menu tool opens a sheet of its options |
+| Working | send is a stop button | the same |
+| Hint | a line about the keys beside the tools | not shown |
 | Enter | sends; Shift+Enter breaks the line | breaks the line; the send button sends, as on a phone |
 | Keyboard | — | `Purpose::Message`: capitals and corrections; the composer rides on it (the page pads by `Insets::typing()`) |
-| Send | disabled while the draft is empty | the same |
+| Send | disabled while the draft is empty, or while the other side cannot take a message (`can_send(false)`) | the same |
 
 | Pointer | Touch |
 |---|---|
@@ -33,4 +36,28 @@ Composer::new(&self.composer)
     .tool(Command::new("priority", "Priority").icon(IconName::CircleAlert).action(SetPriority))
 ```
 
-The draft belongs to the owner: `text()` reads it and `clear()` empties it after sending. Completion lists for mentions and commands remain the application's for now. Draw them with `above`.
+An agent's composer in aiddiction:
+
+```rust
+Composer::new(&self.composer)
+    .above(plan)                                  // each `above` is one band, top to bottom
+    .suggestions(matching_commands)
+    .menu(Command::new("mode", "Ask first").icon(IconName::Bot), modes, Some(current_mode_id))
+    .stop(busy.then(|| Command::new("stop", "Stop the agent's turn").on_trigger(cancel)))
+    .can_send(connected)
+    .hint("/ for commands · Shift+Enter for a new line")
+```
+
+The draft belongs to the owner: `text()` reads it, `set_text()` replaces it (a picked command), and `clear()` empties it after sending. `ComposerEvent::Change` comes as it is typed. `suggestions` puts what completes the draft in a band over the field, one pressable row each: the agent's commands matching "/re", the people matching "@an". Picking one runs its handler, which usually puts it in the draft:
+
+```rust
+Suggestion::new(("command", name), "/review", move |window, cx| {
+    composer.update(cx, |c, cx| c.set_text("/review ", window, cx));
+})
+.detail("Review the changes")
+.code()   // typed as it is: monospaced
+```
+
+## Tests
+
+`tests/ui.rs`: `a_working_composer_stops_instead_of_sending` and `a_suggestion_over_the_composer_is_picked_by_a_press`, both in both skins.

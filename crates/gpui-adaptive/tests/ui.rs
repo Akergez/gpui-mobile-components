@@ -503,3 +503,316 @@ fn a_question_asked_in_a_dialog_closes_with_its_answer(cx: &mut TestAppContext) 
         assert!(answered.get(), "{input:?}: and then runs");
     }
 }
+
+// A grouped list: the grouping said once, rows in their sections' order.
+
+struct Grouped {
+    opened: Rc<Cell<u32>>,
+}
+
+impl Render for Grouped {
+    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+        let opened = self.opened.clone();
+        AppFrame::new("Grouped").child(
+            Screen::new("grouped", "Inbox").content(
+                gpui_adaptive::Collection::new("conversations")
+                    .section(
+                        gpui_adaptive::SectionHeader::new("Needs you").tone(gpui_adaptive::Tone::Warning),
+                        [ListRow::new("asking", "Write hello.txt?")
+                            .subtitle("Sample repo · Claude")
+                            .supporting("The agent asks to write a file")
+                            .signal(Some(gpui_adaptive::Signal::Waiting(gpui_adaptive::Tone::Warning)))
+                            .on_activate(move |_, _| opened.set(opened.get() + 1))],
+                    )
+                    .section(gpui_adaptive::SectionHeader::new("Working"), Vec::<ListRow>::new())
+                    .section(
+                        gpui_adaptive::SectionHeader::new("Recent"),
+                        [ListRow::new("older", "Fix the build").signal(Some(gpui_adaptive::Signal::Busy))],
+                    ),
+            ),
+        )
+    }
+}
+
+#[gpui_kit::test]
+fn a_grouped_list_keeps_its_sections_order_in_both_skins(cx: &mut TestAppContext) {
+    for (input, window_size) in [(InputMode::Pointer, DESKTOP), (InputMode::Touch, PHONE)] {
+        setup(input, cx);
+        let opened = Rc::new(Cell::new(0));
+        let shared = opened.clone();
+        let (handle, _) = open(window_size, cx, move |_, _| Grouped { opened: shared });
+        cx.update_window(handle, |_, window, cx| {
+            window.render_frame(cx);
+            let (asking, older) = (window.find("asking").bounds(), window.find("older").bounds());
+            assert!(asking.origin.y < older.origin.y, "{input:?}: Needs you comes before Recent");
+            // The empty Working section has no heading: nothing between them
+            // but Recent's own.
+            assert!(older.origin.y - (asking.origin.y + asking.size.height) < px(64.), "{input:?}: no empty section");
+            window.click("asking", cx);
+        })
+        .unwrap();
+        assert_eq!(opened.get(), 1, "{input:?}: a row with a third line and a signal still opens");
+    }
+}
+
+// A form whose commitment finishes later closes itself when it does.
+
+struct Fields;
+
+impl Render for Fields {
+    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+        div().child("Address")
+    }
+}
+
+#[gpui_kit::test]
+fn a_form_can_be_closed_once_its_work_is_done(cx: &mut TestAppContext) {
+    for (input, window_size) in [(InputMode::Pointer, DESKTOP), (InputMode::Touch, PHONE)] {
+        setup(input, cx);
+        let (handle, _) = open(window_size, cx, |_, _| Blank);
+        cx.update_window(handle, |_, window, cx| {
+            window.render_frame(cx);
+            let fields = cx.new(|_| Fields);
+            gpui_adaptive::Form::new("Add server", fields).commit("Add", |_, _| false).open(window, cx);
+            window.render_frame(cx);
+            let open = gpui_kit::component::WindowExt::has_active_dialog(window, cx) || Sheet::is_open(window, cx);
+            assert!(open, "{input:?}: the form is up");
+            gpui_adaptive::Form::close(window, cx);
+        })
+        .unwrap();
+        cx.run_until_parked();
+        cx.update_window(handle, |_, window, cx| {
+            window.render_frame(cx);
+            let open = gpui_kit::component::WindowExt::has_active_dialog(window, cx) || Sheet::is_open(window, cx);
+            assert!(!open, "{input:?}: and gone");
+        })
+        .unwrap();
+    }
+}
+
+// Options that follow another field: the agents of the chosen project.
+
+struct Agents {
+    agent: Entity<ChoiceState>,
+}
+
+impl Render for Agents {
+    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+        AppFrame::new("Agents").child(Choice::new(&self.agent).id("agent"))
+    }
+}
+
+#[gpui_kit::test]
+fn a_choices_options_can_be_replaced(cx: &mut TestAppContext) {
+    for (input, window_size) in [(InputMode::Pointer, DESKTOP), (InputMode::Touch, PHONE)] {
+        setup(input, cx);
+        let (handle, view) = open(window_size, cx, |window, cx| {
+            let options = vec![ChoiceOption::new("claude", "Claude Code"), ChoiceOption::new("codex", "Codex")];
+            Agents { agent: cx.new(|cx| ChoiceState::searchable(options, Some("claude".into()), window, cx)) }
+        });
+        cx.update_window(handle, |_, window, cx| {
+            let agent = view.read(cx).agent.clone();
+            agent.update(cx, |agent, cx| {
+                agent.set_options(vec![ChoiceOption::new("fake", "Fake agent")], Some("fake".into()), window, cx)
+            });
+            window.render_frame(cx);
+            let agent = agent.read(cx);
+            assert_eq!(agent.options().len(), 1, "{input:?}");
+            assert_eq!(agent.selected_option().map(|option| option.label().clone()), Some("Fake agent".into()), "{input:?}");
+        })
+        .unwrap();
+    }
+}
+
+// A composer while the other side works: send is stop.
+
+struct Talk {
+    composer: Entity<gpui_adaptive::ComposerState>,
+    stopped: Rc<Cell<u32>>,
+}
+
+impl Render for Talk {
+    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+        let stopped = self.stopped.clone();
+        AppFrame::new("Talk").child(
+            gpui_adaptive::Composer::new(&self.composer)
+                .stop(Some(Command::new("stop", "Stop").on_trigger(move |_, _| stopped.set(stopped.get() + 1))))
+                .menu(
+                    Command::new("mode", "Ask first").icon(IconName::Bot),
+                    vec![Command::new("mode-ask", "Ask first"), Command::new("mode-auto", "Auto")],
+                    Some("mode-ask".into()),
+                ),
+        )
+    }
+}
+
+#[gpui_kit::test]
+fn a_working_composer_stops_instead_of_sending(cx: &mut TestAppContext) {
+    for (input, window_size) in [(InputMode::Pointer, DESKTOP), (InputMode::Touch, PHONE)] {
+        setup(input, cx);
+        let stopped = Rc::new(Cell::new(0));
+        let shared = stopped.clone();
+        let (handle, _) = open(window_size, cx, move |window, cx| Talk {
+            composer: cx.new(|cx| gpui_adaptive::ComposerState::new("Ask the agent…", window, cx)),
+            stopped: shared,
+        });
+        cx.update_window(handle, |_, window, cx| {
+            window.render_frame(cx);
+            window.click("stop", cx);
+        })
+        .unwrap();
+        assert_eq!(stopped.get(), 1, "{input:?}: the stop button stops");
+    }
+}
+
+// A command in an item's hover bar is the command's, not the item's.
+
+struct Card {
+    opened: Rc<Cell<u32>>,
+    moved: Rc<Cell<u32>>,
+}
+
+impl Render for Card {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let (opened, moved) = (self.opened.clone(), self.moved.clone());
+        let card = div()
+            .id("card")
+            .w(px(240.))
+            .h(px(80.))
+            .on_click(move |_, _, _| opened.set(opened.get() + 1));
+        let actions = gpui_adaptive::ItemActions::new()
+            .quick(Command::new("move", "Move to Done").icon(IconName::ChevronRight).on_trigger(move |_, _| moved.set(moved.get() + 1)));
+        AppFrame::new("Card").child(actions.attach(card, gpui_adaptive::Env::of(window, cx), cx))
+    }
+}
+
+#[gpui_kit::test]
+fn a_command_in_the_hover_bar_does_not_open_the_item(cx: &mut TestAppContext) {
+    setup(InputMode::Pointer, cx);
+    let (opened, moved) = (Rc::new(Cell::new(0)), Rc::new(Cell::new(0)));
+    let (o, m) = (opened.clone(), moved.clone());
+    let (handle, _) = open(DESKTOP, cx, move |_, _| Card { opened: o, moved: m });
+    cx.update_window(handle, |_, window, cx| {
+        window.render_frame(cx);
+        window.click("move", cx);
+    })
+    .unwrap();
+    assert_eq!((moved.get(), opened.get()), (1, 0), "the command, and only the command");
+}
+
+// A field of several lines keeps its lines.
+
+#[gpui_kit::test]
+fn a_multiline_field_keeps_its_lines(cx: &mut TestAppContext) {
+    setup(InputMode::Pointer, cx);
+    let (handle, _) = open(DESKTOP, cx, |_, _| Blank);
+    cx.update_window(handle, |_, window, cx| {
+        let field = cx.new(|cx| gpui_adaptive::TextFieldState::multiline(gpui_adaptive::Purpose::Message, 2, 6, window, cx));
+        field.update(cx, |field, cx| field.set_value("A=1\nB=2", window, cx));
+        assert_eq!(field.read(cx).value(cx).as_ref(), "A=1\nB=2");
+        assert!(field.read(cx).input().is_none(), "no one-line input inside");
+    })
+    .unwrap();
+}
+
+// What completes the draft is offered over the composer and picked by a press.
+
+struct Commands {
+    composer: Entity<gpui_adaptive::ComposerState>,
+    picked: Rc<Cell<u32>>,
+}
+
+impl Render for Commands {
+    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+        let picked = self.picked.clone();
+        let review = gpui_adaptive::Suggestion::new("command-review", "/review", move |_, _| picked.set(picked.get() + 1))
+            .detail("Review the changes")
+            .code();
+        AppFrame::new("Talk").child(gpui_adaptive::Composer::new(&self.composer).suggestions(vec![review]))
+    }
+}
+
+#[gpui_kit::test]
+fn a_suggestion_over_the_composer_is_picked_by_a_press(cx: &mut TestAppContext) {
+    for (input, window_size) in [(InputMode::Pointer, DESKTOP), (InputMode::Touch, PHONE)] {
+        setup(input, cx);
+        let picked = Rc::new(Cell::new(0));
+        let shared = picked.clone();
+        let (handle, _) = open(window_size, cx, move |window, cx| Commands {
+            composer: cx.new(|cx| gpui_adaptive::ComposerState::new("Ask the agent…", window, cx)),
+            picked: shared,
+        });
+        cx.update_window(handle, |_, window, cx| {
+            window.render_frame(cx);
+            window.click("command-review", cx);
+        })
+        .unwrap();
+        assert_eq!(picked.get(), 1, "{input:?}: the suggestion is picked");
+    }
+}
+
+// A fold, a swatch and a primitive's pressable say they were pressed.
+
+struct Parts {
+    folded: Rc<Cell<u32>>,
+    swatch: Rc<std::cell::RefCell<Vec<Option<SharedString>>>>,
+    pressed: Rc<Cell<u32>>,
+}
+
+impl Render for Parts {
+    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let (folded, swatch, pressed) = (self.folded.clone(), self.swatch.clone(), self.pressed.clone());
+        let fold = gpui_adaptive::Fold::new("thought", "Thinking").on_toggle(move |_, _| folded.set(folded.get() + 1));
+        let swatches = gpui_adaptive::Swatches::new("colors", None::<SharedString>)
+            .unset("System")
+            .swatch("blue", "Blue", gpui_kit::blue())
+            .on_pick(move |key, _, _| swatch.borrow_mut().push(key.cloned()));
+        let press = gpui_adaptive::prim::testable(
+            gpui_adaptive::prim::pressable("press", cx)
+                .child(gpui_adaptive::Text::body("Press"))
+                .on_click(move |_, _, _| pressed.set(pressed.get() + 1)),
+        );
+        AppFrame::new("Parts").child(
+            gpui_adaptive::Stack::new()
+                .child(fold)
+                .child(gpui_adaptive::Setting::new("Color").below(swatches))
+                .child(press),
+        )
+    }
+}
+
+#[gpui_kit::test]
+fn a_fold_a_swatch_and_a_pressable_answer_a_press_in_both_skins(cx: &mut TestAppContext) {
+    for (input, window_size) in [(InputMode::Pointer, DESKTOP), (InputMode::Touch, PHONE)] {
+        setup(input, cx);
+        let (folded, swatch, pressed) = (Rc::new(Cell::new(0)), Rc::new(std::cell::RefCell::new(Vec::new())), Rc::new(Cell::new(0)));
+        let shared = (folded.clone(), swatch.clone(), pressed.clone());
+        let (handle, _) = open(window_size, cx, move |_, _| Parts { folded: shared.0, swatch: shared.1, pressed: shared.2 });
+        cx.update_window(handle, |_, window, cx| {
+            window.render_frame(cx);
+            window.click("thought", cx);
+            window.click("blue", cx);
+            window.click("press", cx);
+        })
+        .unwrap();
+        assert_eq!(folded.get(), 1, "{input:?}: the fold toggles");
+        assert_eq!(*swatch.borrow(), vec![Some(SharedString::from("blue"))], "{input:?}: the swatch is picked by its key");
+        assert_eq!(pressed.get(), 1, "{input:?}: the pressable is pressed");
+    }
+}
+
+// The colours by role follow the skin.
+
+#[gpui_kit::test]
+fn the_colours_by_role_follow_the_skin(cx: &mut TestAppContext) {
+    use gpui_adaptive::{ActiveColors as _, ActivePalette as _};
+    setup(InputMode::Touch, cx);
+    cx.update(|cx| {
+        let (colors, palette) = (cx.colors(), cx.palette());
+        assert_eq!((colors.text, colors.mine), (palette.on_surface, palette.primary_container));
+        gpui_adaptive::set_input_mode(InputMode::Pointer, cx);
+        let theme = gpui_kit::component::ActiveTheme::theme(cx).clone();
+        let colors = cx.colors();
+        assert_eq!((colors.text, colors.mine), (theme.foreground, theme.secondary));
+    });
+}

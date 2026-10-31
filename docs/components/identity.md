@@ -20,7 +20,10 @@ Avatar::new(("user", user.id), user.initials())
     .picture(user.picture_url())     // impl Into<ImageSource>
     .presence(Presence::Online)
 Avatar::new(("server", server.id), "H").square()
+Avatar::new(("project", id), "S").square().hue(project_hue(id))   // aiddiction's projects
 ```
+
+`hue(0–1)` gives the thing a colour of its own instead of the tertiary container, light or dark as the theme is, so that each project or person keeps one colour everywhere. Derive the hue from the thing's id.
 
 ## Count
 

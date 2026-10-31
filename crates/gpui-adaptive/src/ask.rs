@@ -16,7 +16,7 @@ use gpui_kit::component::button::{Button, ButtonVariants};
 use gpui_kit::component::dialog::DialogFooter;
 use gpui_kit::component::{ActiveTheme, Icon, IconName, Sizable, h_flex, v_flex};
 use gpui_kit::prelude::*;
-use gpui_kit::{App, ElementId, RenderOnce, SharedString, Window, div};
+use gpui_kit::{AnyElement, App, ElementId, RenderOnce, SharedString, Window, div};
 
 use crate::banner::Tone;
 use crate::command::{Command, CommandRole};
@@ -24,18 +24,19 @@ use crate::env::{Env, InputMode, input_mode};
 use crate::scale::ActiveScale;
 
 /// A question and its answers.
-#[derive(IntoElement, Clone)]
+#[derive(IntoElement)]
 pub struct Ask {
     id: ElementId,
     question: SharedString,
     detail: Option<SharedString>,
     tone: Tone,
+    body: Option<AnyElement>,
     answers: Vec<Command>,
 }
 
 impl Ask {
     pub fn new(id: impl Into<ElementId>, question: impl Into<SharedString>) -> Self {
-        Ask { id: id.into(), question: question.into(), detail: None, tone: Tone::Warning, answers: Vec::new() }
+        Ask { id: id.into(), question: question.into(), detail: None, tone: Tone::Warning, body: None, answers: Vec::new() }
     }
 
     /// What exactly is asked about: the command, the file, the bot.
@@ -48,6 +49,14 @@ impl Ask {
     /// ordinary question.
     pub fn tone(mut self, tone: Tone) -> Self {
         self.tone = tone;
+        self
+    }
+
+    /// What is filled in before answering, between the question and the
+    /// answers: an API key, the code a sign-in page gives. Not for
+    /// [`Ask::open`], whose dialog has no room for it.
+    pub fn body(mut self, body: impl IntoElement) -> Self {
+        self.body = Some(body.into_any_element());
         self
     }
 
@@ -98,12 +107,7 @@ impl RenderOnce for Ask {
         let touch = env.is_touch();
         let theme = cx.theme();
         let scale = cx.scale();
-        let tint = match self.tone {
-            Tone::Info => theme.info,
-            Tone::Success => theme.success,
-            Tone::Warning => theme.warning,
-            Tone::Danger => theme.danger,
-        };
+        let tint = self.tone.color(cx);
         let (muted, background) = (theme.muted_foreground, theme.background);
         let answers = h_flex()
             .flex_wrap()
@@ -123,7 +127,11 @@ impl RenderOnce for Ask {
                 h_flex()
                     .gap_2()
                     .items_start()
-                    .child(Icon::new(IconName::TriangleAlert).small().text_color(tint))
+                    .child(Icon::new(match self.tone {
+                        Tone::Info => IconName::Info,
+                        Tone::Success => IconName::CircleCheck,
+                        Tone::Warning | Tone::Danger => IconName::TriangleAlert,
+                    }).small().text_color(tint))
                     .child(
                         v_flex()
                             .flex_1()
@@ -134,6 +142,7 @@ impl RenderOnce for Ask {
                             })),
                     ),
             )
-            .child(answers)
+            .children(self.body)
+            .when(!self.answers.is_empty(), |card| card.child(answers))
     }
 }

@@ -10,10 +10,13 @@
 //! **Touch**: the input at its large size (a finger's height), the label
 //! over it, the error under it.
 //!
+//! A field of several lines ([`TextFieldState::multiline`]) grows with what
+//! is written, between its bounds: details in Markdown, an environment.
+//!
 //! The state is retained: make a [`TextFieldState`] in the owner's `new`,
 //! hold it, draw `TextField::new(&state)` in `render`.
 
-use gpui_kit::component::input::{Input, InputEvent, InputState};
+use gpui_kit::component::input::{Input, InputEvent, InputState, Textarea, TextareaState};
 use gpui_kit::component::{ActiveTheme, Sizable, v_flex};
 use gpui_kit::prelude::*;
 use gpui_kit::{
@@ -35,9 +38,15 @@ pub enum FieldEvent {
     Submit,
 }
 
+/// The text the field keeps: a line, or lines.
+enum Text {
+    Line(Entity<InputState>),
+    Lines(Entity<TextareaState>),
+}
+
 /// The retained state of a text field.
 pub struct TextFieldState {
-    input: Entity<InputState>,
+    input: Text,
     purpose: Purpose,
     error: Option<SharedString>,
     _subscription: Subscription,
@@ -49,18 +58,48 @@ impl TextFieldState {
     pub fn new(purpose: Purpose, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let input = cx.new(|cx| InputState::new(window, cx).masked(purpose == Purpose::Password));
         let subscription = cx.subscribe(&input, move |this: &mut Self, input, event: &InputEvent, cx| {
-            gpui_android_glue::keyboard::follow(input.entity_id(), event, this.purpose);
-            match event {
-                InputEvent::Change => {
-                    this.error = None;
-                    cx.emit(FieldEvent::Change);
-                    cx.notify();
-                }
-                InputEvent::PressEnter { .. } => cx.emit(FieldEvent::Submit),
-                InputEvent::Focus | InputEvent::Blur => {}
-            }
+            this.on_input(input.entity_id(), event, cx)
         });
-        TextFieldState { input, purpose, error: None, _subscription: subscription }
+        TextFieldState { input: Text::Line(input), purpose, error: None, _subscription: subscription }
+    }
+
+    /// A field of several lines, growing from `min` to `max` lines with what
+    /// is written. Enter breaks the line.
+    pub fn multiline(purpose: Purpose, min: usize, max: usize, window: &mut Window, cx: &mut Context<Self>) -> Self {
+        let input = cx.new(|cx| TextareaState::new(window, cx).auto_grow(min, max));
+        let subscription = cx.subscribe(&input, move |this: &mut Self, input, event: &InputEvent, cx| {
+            this.on_input(input.entity_id(), event, cx)
+        });
+        TextFieldState { input: Text::Lines(input), purpose, error: None, _subscription: subscription }
+    }
+
+    /// What to ask, in a few lines: the first message of a conversation. On a
+    /// pointer Enter commits the form (Shift+Enter breaks the line), as in a
+    /// conversation; on a finger Enter breaks the line and the form's
+    /// button commits.
+    pub fn prompt(min: usize, max: usize, window: &mut Window, cx: &mut Context<Self>) -> Self {
+        let pointer = crate::env::input_mode(cx) == crate::env::InputMode::Pointer;
+        let input = cx.new(|cx| TextareaState::new(window, cx).auto_grow(min, max).submit_on_enter(pointer));
+        let subscription = cx.subscribe(&input, move |this: &mut Self, input, event: &InputEvent, cx| {
+            if pointer && matches!(event, InputEvent::PressEnter { shift: false, .. }) {
+                cx.emit(FieldEvent::Submit);
+            }
+            this.on_input(input.entity_id(), event, cx)
+        });
+        TextFieldState { input: Text::Lines(input), purpose: Purpose::Message, error: None, _subscription: subscription }
+    }
+
+    fn on_input(&mut self, input: gpui_kit::EntityId, event: &InputEvent, cx: &mut Context<Self>) {
+        gpui_android_glue::keyboard::follow(input, event, self.purpose);
+        match event {
+            InputEvent::Change => {
+                self.error = None;
+                cx.emit(FieldEvent::Change);
+                cx.notify();
+            }
+            InputEvent::PressEnter { .. } if matches!(self.input, Text::Line(_)) => cx.emit(FieldEvent::Submit),
+            _ => {}
+        }
     }
 
     /// A field for an amount: the keyboard of digits with the decimal
@@ -72,16 +111,25 @@ impl TextFieldState {
     /// What the empty field shows.
     pub fn set_placeholder(&mut self, placeholder: impl Into<SharedString>, window: &mut Window, cx: &mut Context<Self>) {
         let placeholder: SharedString = placeholder.into();
-        self.input.update(cx, |input, cx| input.set_placeholder(placeholder, window, cx));
+        match &self.input {
+            Text::Line(input) => input.update(cx, |input, cx| input.set_placeholder(placeholder, window, cx)),
+            Text::Lines(input) => input.update(cx, |input, cx| input.set_placeholder(placeholder, window, cx)),
+        }
     }
 
     pub fn value(&self, cx: &App) -> SharedString {
-        self.input.read(cx).value()
+        match &self.input {
+            Text::Line(input) => input.read(cx).value(),
+            Text::Lines(input) => input.read(cx).value(),
+        }
     }
 
     pub fn set_value(&mut self, value: impl Into<SharedString>, window: &mut Window, cx: &mut Context<Self>) {
         let value: SharedString = value.into();
-        self.input.update(cx, |input, cx| input.set_value(value, window, cx));
+        match &self.input {
+            Text::Line(input) => input.update(cx, |input, cx| input.set_value(value, window, cx)),
+            Text::Lines(input) => input.update(cx, |input, cx| input.set_value(value, window, cx)),
+        }
     }
 
     /// The number typed, read with either decimal separator and with spaces
@@ -105,15 +153,22 @@ impl TextFieldState {
         self.purpose
     }
 
-    /// The input inside, for what gpui-kit's own API offers beyond this.
-    pub fn input(&self) -> &Entity<InputState> {
-        &self.input
+    /// The input inside a one-line field, for what gpui-kit's own API
+    /// offers beyond this.
+    pub fn input(&self) -> Option<&Entity<InputState>> {
+        match &self.input {
+            Text::Line(input) => Some(input),
+            Text::Lines(_) => None,
+        }
     }
 }
 
 impl Focusable for TextFieldState {
     fn focus_handle(&self, cx: &App) -> FocusHandle {
-        self.input.read(cx).focus_handle(cx)
+        match &self.input {
+            Text::Line(input) => input.read(cx).focus_handle(cx),
+            Text::Lines(input) => input.read(cx).focus_handle(cx),
+        }
     }
 }
 
@@ -175,14 +230,27 @@ impl RenderOnce for TextField {
         let theme = cx.theme();
         let (muted, danger) = (theme.muted_foreground, theme.danger);
         let state = self.state.read(cx);
-        let (input_state, error) = (state.input.clone(), state.error.clone());
-        let input = Input::new(&input_state).disabled(self.disabled);
-        let input = match self.suffix {
-            Some(suffix) => input.suffix(div().text_color(muted).child(suffix)),
-            None => input,
+        let (error, password) = (state.error.clone(), state.purpose == Purpose::Password);
+        let input: AnyElement = match &state.input {
+            Text::Line(input_state) => {
+                let input_state = input_state.clone();
+                let input = Input::new(&input_state).disabled(self.disabled);
+                // A password can be looked at before it is sent.
+                let input = if password { input.mask_toggle() } else { input };
+                let input = match self.suffix {
+                    Some(suffix) => input.suffix(div().text_color(muted).child(suffix)),
+                    None => input,
+                };
+                let input = if env.is_touch() { input.large() } else { input.small() };
+                gpui_android_glue::keyboard::on_tap(input, &input_state, cx).into_any_element()
+            }
+            Text::Lines(input_state) => {
+                let input_state = input_state.clone();
+                let area = Textarea::new(&input_state).disabled(self.disabled);
+                let area = if env.is_touch() { area.large() } else { area.small() };
+                gpui_android_glue::keyboard::on_tap(area, &input_state, cx).into_any_element()
+            }
         };
-        let input = if env.is_touch() { input.large() } else { input.small() };
-        let input = gpui_android_glue::keyboard::on_tap(input, &input_state, cx);
         let under = match (error, self.help) {
             (Some(error), _) => Some(div().text_size(scale.small).text_color(danger).child(error)),
             (None, Some(help)) => Some(div().text_size(scale.small).text_color(muted).child(help)),

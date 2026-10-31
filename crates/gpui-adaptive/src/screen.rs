@@ -26,6 +26,7 @@ use gpui_kit::{AnyElement, App, ElementId, FontWeight, RenderOnce, SharedString,
 
 use crate::command::{Command, CommandRole};
 use crate::env::{Env, InputMode, WidthClass};
+use crate::list::Signal;
 use crate::palette::ActivePalette;
 use crate::scale::ActiveScale;
 use crate::sheet::Sheet;
@@ -39,6 +40,7 @@ pub struct Screen {
     id: ElementId,
     title: SharedString,
     subtitle: Option<SharedString>,
+    status: Option<(SharedString, Signal)>,
     up: Option<Up>,
     root: bool,
     commands: Vec<Command>,
@@ -55,6 +57,7 @@ impl Screen {
             id: id.into(),
             title: title.into(),
             subtitle: None,
+            status: None,
             up: None,
             root: false,
             commands: Vec::new(),
@@ -68,6 +71,16 @@ impl Screen {
 
     pub fn subtitle(mut self, subtitle: impl Into<SharedString>) -> Self {
         self.subtitle = Some(subtitle.into());
+        self
+    }
+
+    /// What the page's subject is doing now, as a short word: "Needs you",
+    /// "Working". **Pointer**: a tinted pill after the title, with the
+    /// signal's dot or spinner. **Touch**: not shown; a phone's bar has no
+    /// room, and the page itself says it (the question's card, the stop
+    /// button).
+    pub fn status(mut self, status: Option<(SharedString, Signal)>) -> Self {
+        self.status = status;
         self
     }
 
@@ -177,12 +190,46 @@ impl Screen {
                 .tooltip("More")
                 .dropdown_menu(move |menu, _, _| overflow.iter().fold(menu, |menu, c| c.add_to(menu)))
         });
+        let status = self.status.clone().map(|(label, signal)| {
+            let tint = match signal {
+                Signal::Waiting(tone) => tone.color(cx),
+                Signal::Busy | Signal::New => cx.theme().primary,
+            };
+            let mark = match signal {
+                Signal::Busy => gpui_kit::component::spinner::Spinner::new().xsmall().into_any_element(),
+                _ => div().size(gpui_kit::rems(0.5)).rounded_full().bg(tint).into_any_element(),
+            };
+            h_flex()
+                .flex_none()
+                .gap_1p5()
+                .h(scale.control)
+                .px_2p5()
+                .rounded_full()
+                .bg(tint.opacity(0.14))
+                .text_color(tint)
+                .text_size(scale.small)
+                .font_weight(FontWeight::SEMIBOLD)
+                .child(mark)
+                .child(label)
+        });
         let content = self.render_content(env);
         let in_title_bar = self.in_title_bar && !self.column;
+        // A column beside a page in the window's title bar lines up with it:
+        // one strip across the window, the column's part its own.
+        let beside_title_bar = self.in_title_bar && self.column;
+        let (title_bar_bg, title_bar_border) = (cx.theme().title_bar, cx.theme().title_bar_border);
         let bar = h_flex()
                     .flex_none()
-                    .when(!in_title_bar, |bar| bar.h(scale.bar).px_3().border_b_1().border_color(border))
-                    .when(in_title_bar, |bar| bar.flex_1().min_w_0().pr_2())
+                    .when(!in_title_bar && !beside_title_bar, |bar| bar.h(scale.bar).px_3().border_b_1().border_color(border))
+                    .when(beside_title_bar, |bar| {
+                        bar.h(gpui_kit::component::TITLE_BAR_HEIGHT)
+                            .pl_3()
+                            .pr_1()
+                            .bg(title_bar_bg)
+                            .border_b_1()
+                            .border_color(title_bar_border)
+                    })
+                    .when(in_title_bar, |bar| bar.size_full().pr_2())
                     .gap_2()
                     .children(up)
                     .child(
@@ -204,6 +251,7 @@ impl Screen {
                                 div().min_w_0().truncate().text_size(scale.small).text_color(muted).child(subtitle)
                             })),
                     )
+                    .children(status)
                     .children(shown.iter().map(|c| {
                         if roomy { c.button(env).into_any_element() } else { c.icon_button(env).into_any_element() }
                     }))
@@ -297,6 +345,10 @@ impl Screen {
 /// under the status bar on a phone.
 fn title_bar(content: impl IntoElement, cx: &App) -> AnyElement {
     let frame = gpui_android_glue::chrome::Frame { below_status_bar: true, ..Default::default() };
+    // The toolkit's title bar is as wide as its content at the least, and
+    // would push the window's controls out for a long subtitle. Laid over it
+    // the content takes the room there is, and cuts the subtitle.
+    let content = div().absolute().inset_0().flex().items_center().child(content);
     gpui_android_glue::chrome::title_frame(content, frame, cx)
 }
 

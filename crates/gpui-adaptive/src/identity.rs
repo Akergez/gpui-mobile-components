@@ -32,12 +32,13 @@ pub struct Avatar {
     presence: Option<Presence>,
     size: Option<Rems>,
     square: bool,
+    hue: Option<f32>,
 }
 
 impl Avatar {
     /// `id` is the person's or the thing's own (`("user", user.id)`).
     pub fn new(id: impl Into<ElementId>, initials: impl Into<SharedString>) -> Self {
-        Avatar { id: id.into(), initials: initials.into(), picture: None, presence: None, size: None, square: false }
+        Avatar { id: id.into(), initials: initials.into(), picture: None, presence: None, size: None, square: false, hue: None }
     }
 
     pub fn picture(mut self, picture: impl Into<ImageSource>) -> Self {
@@ -57,6 +58,14 @@ impl Avatar {
 
     /// Rounded square corners: a team, a server, a project rather than a
     /// person.
+    /// Its own colour rather than the scheme's tertiary container: a hue
+    /// (0–1) derived from the thing's id, so that each project or person
+    /// keeps one colour everywhere. Light or dark as the theme is.
+    pub fn hue(mut self, hue: f32) -> Self {
+        self.hue = Some(hue);
+        self
+    }
+
     pub fn square(mut self) -> Self {
         self.square = true;
         self
@@ -89,6 +98,14 @@ impl RenderOnce for Avatar {
                 .border_color(theme.background)
                 .bg(color)
         });
+        let dark = theme.mode.is_dark();
+        let (container, on_container) = match self.hue {
+            Some(hue) => (
+                gpui_kit::hsla(hue, 0.55, if dark { 0.26 } else { 0.88 }, 1.),
+                gpui_kit::hsla(hue, 0.6, if dark { 0.8 } else { 0.3 }, 1.),
+            ),
+            None => (palette.tertiary_container, palette.on_tertiary_container),
+        };
         let radius = if self.square { rems(size.0 * 0.28) } else { rems(size.0) };
         let face = match self.picture {
             Some(picture) => img(picture).size_full().rounded(radius).into_any_element(),
@@ -98,8 +115,8 @@ impl RenderOnce for Avatar {
                 .flex()
                 .items_center()
                 .justify_center()
-                .bg(palette.tertiary_container)
-                .text_color(palette.on_tertiary_container)
+                .bg(container)
+                .text_color(on_container)
                 .text_size(rems(size.0 * 0.4))
                 .font_weight(FontWeight::SEMIBOLD)
                 .child(self.initials)

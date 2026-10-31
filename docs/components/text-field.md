@@ -44,7 +44,12 @@ let value = amount.read(cx).number(cx);          // reads "1 240,50", "1240.5", 
 amount.update(cx, |f, cx| f.set_error(Some("Type an amount"), cx));
 ```
 
-Typing clears the error. `input()` exposes the inner gpui-kit `InputState` for anything beyond this.
+Typing clears the error. `input()` exposes the inner gpui-kit `InputState` of a one-line field for anything beyond this.
+
+- A `Password` field is masked, with an eye to look at it before it is sent.
+- `TextFieldState::multiline(purpose, min, max, ..)` is a field of several lines growing from `min` to `max` (details in Markdown, an environment): Enter breaks the line.
+- `TextFieldState::prompt(min, max, ..)` is what to ask, in a few lines (a conversation's first message): on a pointer Enter commits the form and Shift+Enter breaks the line; on a finger Enter breaks the line and the form's button commits.
+- `set_placeholder` and `set_value` work on either.
 
 ## Tests
 

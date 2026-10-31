@@ -24,7 +24,7 @@ A tablet gets columns with touch feedback. A narrow desktop window gets one pane
 
 Nothing here is a new engine:
 
-- **Colours** come from `gpui-adaptive-colors`: a Material You scheme from one seed, or a Zed theme the person wears. Everything is read through `cx.theme()`. The touch skin's extra roles come from [`Palette`](components/palette.md), which falls back to the theme while a Zed theme is worn.
+- **Colours** come from `gpui-adaptive-colors`: a Material You scheme from one seed, or a Zed theme the person wears. The intents read them through `cx.theme()`; the touch skin's extra roles come from [`Palette`](components/palette.md), which falls back to the theme while a Zed theme is worn. An application reads them by role, for its skin, with `cx.colors()` ([Primitives](components/primitives.md)).
 - **Phone plumbing** comes from `gpui-android-glue`: back (layers, predictive back, swipe back), the keyboard (insets, purpose, raise on tap) and the system bars. See [Insets](components/insets.md).
 - **Behaviour** is gpui-kit's wherever it has it: `Select`, `Dialog`, `Notification`, `Input`, `Calendar`, `Switch`, `Checkbox`, `Spinner`, `Progress`, `Skeleton`.
 
@@ -48,6 +48,7 @@ gpui_kit::application().with_assets(gpui_kit::assets::Assets).run(|cx| {
 - [Palette](components/palette.md): Material roles that survive a Zed theme
 - [Insets](components/insets.md): status bar, navigation bar, keyboard
 - [AppFrame](components/app-frame.md): the window's frame and its layers
+- [Primitives](components/primitives.md): colours by role, room, icons, text, surfaces, pressables, scrolls: what an application builds its own parts from
 
 **Structure**
 - [Destinations](components/destinations.md): sections as a bar, rail or sidebar
@@ -55,6 +56,7 @@ gpui_kit::application().with_assets(gpui_kit::assets::Assets).run(|cx| {
 - [Navigator](components/navigator.md): columns or a stack, with predictive back
 - [Sheet](components/sheet.md): a bottom sheet or a dialog
 - [Dock](components/dock.md): something that outlives the page
+- [Stack](components/stack.md): the parts of a page in a centred column
 
 **Actions**
 - [Command](components/command.md): one action, many entry points
@@ -71,20 +73,25 @@ gpui_kit::application().with_assets(gpui_kit::assets::Assets).run(|cx| {
 - [Segments](components/segments.md): two to four exclusive modes
 - [Toggle](components/toggle.md): on or off
 - [DateField](components/date-field.md): a date, typed or picked
-- [Composer](components/composer.md): writing a message
+- [Composer](components/composer.md): writing a message, with suggestions
+- [Setting and Swatches](components/setting.md): a settings page
 
 **Content**
 - [ListRow, SectionHeader, Collection](components/list.md)
 - [Records](components/records.md): a table or a list
+- [Feed, Message, Fold](components/feed.md): a conversation as it is read
+- [Code](components/code.md): text a machine wrote
 
 **Feedback**
 - [Banner](components/banner.md): a standing state of the page
 - [Busy and Skeleton](components/busy.md): work under way
 - [Empty](components/empty.md): nothing yet, and what to do
+- [Note](components/note.md): a sentence the page says
 - [Avatar and Count](components/identity.md): who, and how many
 
 ## Rules for feature code
 
+1. Do not call gpui-kit's components. What no intent is, build from the [primitives](components/primitives.md); an application can check it with clippy's `disallowed-methods`/`disallowed-types`.
 1. Do not ask for the platform. `Env::of(window, cx).is_touch()` is the one escape hatch, and every use of it in a feature is a missing intent.
 2. Give repeated things stable ids from the domain (`("channel", id)`), never positions.
 3. Model each command once, as a [`Command`](components/command.md). Its button, menu item, FAB and key binding then cannot disagree.
@@ -93,17 +100,15 @@ gpui_kit::application().with_assets(gpui_kit::assets::Assets).run(|cx| {
 
 ## What stays in the applications
 
-The proposal in Claude Design also had the surfaces below. Each serves one application, so they are not intents of the design system. Each application builds them itself, from the intents:
+Some parts serve one application. It builds them itself, from the intents and the [primitives](components/primitives.md), not from gpui-kit:
 
-| Surface | Application | Built from |
+| Part | Application | Built from |
 |---|---|---|
-| Message feed | matterfast | gpui-kit's `Message` and `MessageScroller`; [ItemActions](components/item-actions.md) for hover and long press; [Screen](components/screen.md) `.scrolls(false)`; [Composer](components/composer.md) |
-| Agent conversation | aiddiction | the same, plus [Confirm](components/confirm.md)-style inline answers for permission requests |
-| Task board | aiddiction | [Route](components/navigator.md)`::scrolls_sideways` so swipe back does not take the board's direction; [ItemActions](components/item-actions.md) "Move to…" on touch |
-| Diff review | aiddiction | `diffreview-ui`; `Route::scrolls_sideways`; [Sheet](components/sheet.md) for a line's note on touch |
-| Charts | money-manager | gpui-kit `chart`; [Segments](components/segments.md) for the month; colours `chart_1`–`chart_5` from the theme |
-
-The chats in matterfast and aiddiction look alike, but what they hold differs (posts with reactions and threads, against agent runs with tools and plans). The shared parts (`Message`, `Bubble`, `MessageScroller`) are gpui-kit's already.
+| An agent's steps and plan (`ui/work.rs`) | aiddiction | `surface(Card)`, `pressable`, `Text`, `Icon`, `spinner`, `Meter`; inside a [Feed](components/feed.md) and on the [Composer](components/composer.md) |
+| An edit's diff (`ui/work.rs`) | aiddiction | `surface(Well)`, `Text::mono`, the tones of `cx.colors()` |
+| Task board (`ui/board.rs`) | aiddiction | `surface(Panel)`/`surface(Card)`, `scroll_x`, [ItemActions](components/item-actions.md); [Route](components/navigator.md)`::scrolls_sideways` so swipe back does not take the board's direction |
+| Diff review | aiddiction | `diffreview-ui`, a view of its own embedded in a [Screen](components/screen.md) |
+| Charts | money-manager | gpui-kit `chart`; [Segments](components/segments.md) for the month |
 
 ## Not done yet
 

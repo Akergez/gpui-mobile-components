@@ -28,6 +28,7 @@ ListRow::new(("channel", channel.id), channel.name())
 ## Rules
 
 - Give quick commands an icon; the hover bar shows icons only.
+- A press on a command in the hover bar is the command's: it does not open the item under it (`a_command_in_the_hover_bar_does_not_open_the_item`).
 - Copying the text of a message belongs among the commands on touch. The long press is taken before text selection, as matterfast does.
 
 ## Not done yet

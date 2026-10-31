@@ -63,6 +63,16 @@ impl Form {
         self
     }
 
+    /// Closes the form that is open: for a commitment that finishes later
+    /// (a server checked over the network before it is saved), which
+    /// answered `false` and closes it once it is done.
+    pub fn close(window: &mut Window, cx: &mut App) {
+        match input_mode(cx) {
+            InputMode::Pointer => gpui_kit::component::WindowExt::close_dialog(window, cx),
+            InputMode::Touch => Sheet::close(window, cx),
+        }
+    }
+
     pub fn open(self, window: &mut Window, cx: &mut App) {
         let first = self.first.clone();
         match input_mode(cx) {
@@ -160,5 +170,34 @@ impl Render for FormSheet {
                     .overflow_y_scroll()
                     .child(div().px_4().py_4().child(self.form.fields.clone())),
             )
+    }
+}
+
+/// The fields of a form, one under another with the skin's room between
+/// them: what a form's view renders.
+#[derive(IntoElement, Default)]
+pub struct Fields {
+    children: Vec<gpui_kit::AnyElement>,
+}
+
+impl Fields {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn child(mut self, child: impl IntoElement) -> Self {
+        self.children.push(child.into_any_element());
+        self
+    }
+
+    pub fn children(mut self, children: impl IntoIterator<Item = impl IntoElement>) -> Self {
+        self.children.extend(children.into_iter().map(IntoElement::into_any_element));
+        self
+    }
+}
+
+impl gpui_kit::RenderOnce for Fields {
+    fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
+        v_flex().w_full().gap(cx.scale().space_m).children(self.children)
     }
 }

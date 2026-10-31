@@ -32,6 +32,8 @@ Form::new("New expense", fields)
 
 The fields are the owner's own view: its [TextField](text-field.md)s, [Choice](choice.md)s and [DateField](date-field.md)s, laid out as it likes. The form therefore keeps its state wherever it is shown. Without `commit`, the form is a panel with Done.
 
+`Form::close(window, cx)` closes the open form, dialog or sheet: for a commitment that finishes later, such as a server checked over the network before it is saved, which answers `false` and closes the form once the server has answered.
+
 ## Rules
 
 - **Name the commitment** ("Add expense", "Create channel"), not "OK" or "Submit".
@@ -41,3 +43,20 @@ The fields are the owner's own view: its [TextField](text-field.md)s, [Choice](c
 ## Replaces
 
 aiddiction `ui/forms.rs`, matterfast `dialogs/forms/*`, and money-manager `bottom_sheet::open_form`.
+
+## Fields
+
+The owner's view lays its fields out with `Fields`: one under another, `space_m` of the [scale](scale.md) between them. What the form as a whole says ("Checking…") is a [Note](note.md) at the end.
+
+```rust
+impl Render for ServerForm {
+    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+        Fields::new()
+            .child(TextField::new(&self.name).label("Name"))
+            .child(TextField::new(&self.url).label("Address"))
+            .children(self.note.clone().map(Note::new))
+    }
+}
+```
+
+A list inside a form (the server's folders) is a `Collection::boxed(height)`: a framed box of a fixed height that scrolls, so the form does not change size as the rows change.

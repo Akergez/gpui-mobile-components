@@ -250,7 +250,7 @@ impl Shell {
             )
             .command(Command::new("search", "Search").icon(IconName::Search))
             .command(Command::new("mark-read", "Mark all read").icon(IconName::Check).overflow())
-            .content(Collection::new("people").child(SectionHeader::new("Direct messages")).children(rows))
+            .content(Collection::new("people").section(SectionHeader::new("Direct messages"), rows))
             .into_any_element()
     }
 

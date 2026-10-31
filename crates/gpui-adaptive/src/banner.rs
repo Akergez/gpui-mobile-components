@@ -25,6 +25,19 @@ pub enum Tone {
     Danger,
 }
 
+impl Tone {
+    /// The theme's colour for the tone.
+    pub fn color(self, cx: &App) -> Hsla {
+        let theme = cx.theme();
+        match self {
+            Tone::Info => theme.info,
+            Tone::Success => theme.success,
+            Tone::Warning => theme.warning,
+            Tone::Danger => theme.danger,
+        }
+    }
+}
+
 /// A strip under the page's bar.
 #[derive(IntoElement)]
 pub struct Banner {
@@ -66,14 +79,8 @@ impl Banner {
 impl RenderOnce for Banner {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let env = Env::of(window, cx);
-        let theme = cx.theme();
         let scale = cx.scale();
-        let tint: Hsla = match self.tone {
-            Tone::Info => theme.info,
-            Tone::Success => theme.success,
-            Tone::Warning => theme.warning,
-            Tone::Danger => theme.danger,
-        };
+        let tint = self.tone.color(cx);
         let action = self.action.map(|command| {
             let button = command.button(env);
             if env.is_touch() { button.ghost().into_any_element() } else { button.small().into_any_element() }
