@@ -8,20 +8,21 @@
 //! stop button ([`Composer::stop`]); while it cannot take a message, send
 //! is disabled ([`Composer::can_send`]).
 //!
-//! **Pointer**: a card: what stands above, the field, and under it the tools,
-//! a hint about the keys and send. Enter sends and Shift+Enter breaks the
-//! line.
-//! **Touch**: the composer rides on the keyboard (it is padded by
-//! [`crate::Insets::typing`] by whoever holds the page). Enter breaks the
-//! line and the send button sends, as on a phone; the tools fold into a
-//! "+" that opens them in a sheet; the keyboard is for prose.
+//! One card on a pointer and on a finger: what stands above, the field, and
+//! under it the tools and send.
+//! **Pointer**: a hint about the keys beside the tools; a menu opens under
+//! its button. Enter sends and Shift+Enter breaks the line.
+//! **Touch**: no hint; a menu opens as a sheet. The composer rides on the
+//! keyboard (it is padded by [`crate::Insets::typing`] by whoever holds the
+//! page). Enter breaks the line and the send button sends, as on a phone;
+//! the keyboard is for prose.
 //!
 //! The draft is the owner's: [`ComposerState::text`] reads it, `clear`
 //! empties it after sending.
 
 use gpui_kit::component::button::{Button, ButtonVariants};
 use gpui_kit::component::menu::{DropdownMenu as _, PopupMenuItem};
-use gpui_kit::component::input::{InputEvent, Textarea, TextareaState};
+use gpui_kit::component::input::{InputEvent, RopeExt as _, Textarea, TextareaState};
 use gpui_kit::component::{ActiveTheme, Disableable as _, IconName, Sizable, h_flex, v_flex};
 use gpui_kit::prelude::*;
 use gpui_kit::{
@@ -33,7 +34,6 @@ use std::rc::Rc;
 
 use crate::command::{Command, Handler};
 use crate::env::{Env, InputMode, input_mode};
-use crate::palette::ActivePalette;
 use crate::scale::ActiveScale;
 use crate::sheet::Sheet;
 
@@ -92,9 +92,15 @@ impl ComposerState {
         self.text.update(cx, |text, cx| text.set_value("", window, cx));
     }
 
+    /// Replaces the draft (a picked command) and puts the cursor at its end,
+    /// where the person goes on typing.
     pub fn set_text(&mut self, text: impl Into<SharedString>, window: &mut Window, cx: &mut Context<Self>) {
         let text: SharedString = text.into();
-        self.text.update(cx, |area, cx| area.set_value(text, window, cx));
+        self.text.update(cx, |area, cx| {
+            area.set_value(text, window, cx);
+            let end = area.text().offset_to_position(area.text().len());
+            area.set_cursor_position(end, window, cx);
+        });
     }
 
     fn send(&mut self, cx: &mut Context<Self>) {
@@ -239,18 +245,25 @@ impl RenderOnce for Suggestions {
 }
 
 impl Tool {
-    /// The tool on a pointer: an icon button, or the current value with a
-    /// menu of the others.
-    fn pointer(&self, env: Env) -> AnyElement {
+    /// The tool on the composer: an icon button, or the current value that
+    /// opens the others: a menu under it on a pointer, a sheet on a finger.
+    fn button(&self, env: Env) -> AnyElement {
         match self {
             Tool::Command(command) => command.icon_button(env).into_any_element(),
             Tool::Menu { shown, options, chosen } => {
-                let (options, chosen) = (options.clone(), chosen.clone());
                 let button = Button::new(shown.id().clone()).ghost().xsmall().label(shown.label().clone()).dropdown_caret(true);
                 let button = match shown.icon_ref() {
                     Some(icon) => button.icon(icon.clone()),
                     None => button,
                 };
+                let options = options.clone();
+                if env.is_touch() {
+                    let title = shown.label().clone();
+                    return button
+                        .on_click(move |_, window, cx| Sheet::actions(Some(title.clone()), options.clone(), window, cx))
+                        .into_any_element();
+                }
+                let chosen = chosen.clone();
                 button
                     .dropdown_menu(move |menu, _, _| {
                         options.iter().fold(menu, |menu, option| {
@@ -263,22 +276,6 @@ impl Tool {
                         })
                     })
                     .into_any_element()
-            }
-        }
-    }
-
-    /// The tool as a row of the touch sheet: a menu opens a sheet of its own.
-    fn touch(&self) -> Command {
-        match self {
-            Tool::Command(command) => command.clone(),
-            Tool::Menu { shown, options, .. } => {
-                let (title, options) = (shown.label().clone(), options.clone());
-                let mut row = Command::new(shown.id().clone(), shown.label().clone())
-                    .on_trigger(move |window, cx| Sheet::actions(Some(title.clone()), options.clone(), window, cx));
-                if let Some(icon) = shown.icon_ref() {
-                    row = row.icon(icon.clone());
-                }
-                row
             }
         }
     }
@@ -311,70 +308,27 @@ impl RenderOnce for Composer {
         };
         let area = Textarea::new(&text).appearance(false);
         let area = gpui_android_glue::keyboard::on_tap(area, &text, cx);
-        match env.input() {
-            InputMode::Pointer => {
-                let (border, muted, background) = (theme.border, theme.muted_foreground, theme.background);
-                v_flex()
-                    .w_full()
-                    .rounded(gpui_kit::rems(1.125))
-                    .border_1()
-                    .border_color(border)
-                    .bg(background)
-                    .overflow_hidden()
-                    .children(self.above.into_iter().map(|above| div().border_b_1().border_color(border).child(above)))
-                    .child(div().px_1().pt_1().child(area))
-                    .child(
-                        h_flex()
-                            .gap_1()
-                            .px_2()
-                            .pb_2()
-                            .children(self.tools.iter().map(|tool| tool.pointer(env)))
-                            .children(self.hint.map(|hint| div().text_size(scale.small).text_color(muted).child(hint)))
-                            .child(div().flex_1())
-                            .child(send.small()),
-                    )
-                    .into_any_element()
-            }
-            InputMode::Touch => {
-                let palette = cx.palette();
-                let tools: Vec<Command> = self.tools.iter().map(Tool::touch).collect();
-                let more = (!tools.is_empty()).then(|| {
-                    Button::new(("composer-tools", self.state.entity_id()))
-                        .ghost()
-                        .large()
-                        .icon(IconName::Plus)
-                        .accessibility_label("More")
-                        .on_click(move |_, window, cx| Sheet::actions(None, tools.clone(), window, cx))
-                });
-                v_flex()
-                    .w_full()
-                    .bg(palette.surface_container)
-                    .children(self.above)
-                    .child(
-                        h_flex()
-                            .w_full()
-                            .items_end()
-                            .gap_1()
-                            .pl_1()
-                            .pr_2()
-                            .py_1p5()
-                            .children(more)
-                            .child(
-                                div()
-                                    .flex_1()
-                                    .min_w_0()
-                                    .min_h(scale.target)
-                                    .px_4()
-                                    .py_2()
-                                    .rounded(gpui_kit::rems(1.5))
-                                    .bg(palette.surface_highest)
-                                    .text_size(scale.body)
-                                    .child(area),
-                            )
-                            .child(send.large()),
-                    )
-                    .into_any_element()
-            }
-        }
+        let (border, muted, background) = (theme.border, theme.muted_foreground, theme.background);
+        // A finger has no use for a line about the keys.
+        let hint = self.hint.filter(|_| !env.is_touch());
+        v_flex()
+            .w_full()
+            .rounded(gpui_kit::rems(1.125))
+            .border_1()
+            .border_color(border)
+            .bg(background)
+            .overflow_hidden()
+            .children(self.above.into_iter().map(|above| div().border_b_1().border_color(border).child(above)))
+            .child(div().px_1().pt_1().child(area))
+            .child(
+                h_flex()
+                    .gap_1()
+                    .px_2()
+                    .pb_2()
+                    .children(self.tools.iter().map(|tool| tool.button(env)))
+                    .children(hint.map(|hint| div().min_w_0().truncate().text_size(scale.small).text_color(muted).child(hint)))
+                    .child(div().flex_1())
+                    .child(send.small()),
+            )
     }
 }

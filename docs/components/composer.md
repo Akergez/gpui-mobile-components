@@ -6,8 +6,8 @@ The composer writes a message to someone in a channel (matterfast) or to an agen
 
 | | Pointer | Touch |
 |---|---|---|
-| Layout | a card: what stands above, the field, then the tools, the hint and send | Material: + for the tools, the field, send |
-| Tools | icon buttons under the field; a menu tool shows what is chosen and opens a menu | folded into a + that opens them in a [sheet](sheet.md); a menu tool opens a sheet of its options |
+| Layout | a card: what stands above, the field, then the tools, the hint and send | the same card, without the hint |
+| Tools | icon buttons under the field; a menu tool shows what is chosen and opens a menu | the same buttons; a menu tool opens a [sheet](sheet.md) of its options |
 | Working | send is a stop button | the same |
 | Hint | a line about the keys beside the tools | not shown |
 | Enter | sends; Shift+Enter breaks the line | breaks the line; the send button sends, as on a phone |
@@ -48,7 +48,7 @@ Composer::new(&self.composer)
     .hint("/ for commands · Shift+Enter for a new line")
 ```
 
-The draft belongs to the owner: `text()` reads it, `set_text()` replaces it (a picked command), and `clear()` empties it after sending. `ComposerEvent::Change` comes as it is typed. `suggestions` puts what completes the draft in a band over the field, one pressable row each: the agent's commands matching "/re", the people matching "@an". Picking one runs its handler, which usually puts it in the draft:
+The draft belongs to the owner: `text()` reads it, `set_text()` replaces it (a picked command) and puts the cursor at its end, and `clear()` empties it after sending. `ComposerEvent::Change` comes as it is typed. `suggestions` puts what completes the draft in a band over the field, one pressable row each: the agent's commands matching "/re", the people matching "@an". Picking one runs its handler, which usually puts it in the draft:
 
 ```rust
 Suggestion::new(("command", name), "/review", move |window, cx| {
