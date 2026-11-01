@@ -117,7 +117,7 @@ impl Scale {
             radius_container: rems(0.75),
             radius_sheet: rems(1.75),
             title: rems(1.25),
-            title_root: rems(1.75),
+            title_root: rems(1.5),
             body: rems(1.),
             small: rems(0.875),
             space_xs: rems(0.25),

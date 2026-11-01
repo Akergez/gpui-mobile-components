@@ -6,7 +6,7 @@ Use `Segments` for choices like Expenses or Income, Day or Week, Mentions or Sav
 
 | Pointer | Touch |
 |---|---|
-| gpui-kit's segmented look: a muted track with the chosen segment raised on it | Material 3's connected button group, 40 dp tall; the chosen segment is filled with the primary and fully rounded |
+| gpui-kit's segmented look: a muted track with the chosen segment raised on it | the same shape at a finger's size: a pill-shaped tonal track as tall as a control, the chosen segment a pill of the secondary container inside it, concentric with the track (the primary is left to the page's one primary action) |
 
 | Pointer | Touch |
 |---|---|

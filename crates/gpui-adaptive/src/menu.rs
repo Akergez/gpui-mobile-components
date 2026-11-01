@@ -16,7 +16,9 @@
 //! window's [`crate::AppFrame`], closed by a choice, a press outside or
 //! Escape. **Touch**: the sheet of rows.
 
+use gpui_kit::base::TestSupportExt as _;
 use gpui_kit::component::button::ButtonVariants as _;
+use gpui_kit::component::{Icon, IconName, Sizable as _};
 use gpui_kit::component::menu::{DropdownMenu as _, PopupMenu};
 use gpui_kit::prelude::*;
 use gpui_kit::{
@@ -27,6 +29,8 @@ use gpui_kit::{
 use crate::command::{Command, in_offer_order};
 use crate::env::{Env, InputMode, input_mode};
 use crate::layers;
+use crate::palette::ActivePalette;
+use crate::scale::ActiveScale;
 use crate::sheet::Sheet;
 
 /// Commands offered from one button.
@@ -36,11 +40,12 @@ pub struct Menu {
     title: Option<SharedString>,
     groups: Vec<Vec<Command>>,
     choice: bool,
+    quiet: bool,
 }
 
 impl Menu {
     pub fn new(button: Command) -> Self {
-        Menu { button, title: None, groups: vec![Vec::new()], choice: false }
+        Menu { button, title: None, groups: vec![Vec::new()], choice: false, quiet: false }
     }
 
     /// The menu is a choice, its button showing what is chosen: outlined,
@@ -48,6 +53,14 @@ impl Menu {
     /// as text. An integration's select, a form's field of a few options.
     pub fn choice(mut self) -> Self {
         self.choice = true;
+        self
+    }
+
+    /// A choice drawn as a line of text rather than as a button: its icon,
+    /// what is chosen and a caret, no outline. A root page's switcher under
+    /// its large title, where an outlined button would be a second heading.
+    pub(crate) fn quiet(mut self) -> Self {
+        self.quiet = true;
         self
     }
 
@@ -132,6 +145,9 @@ impl RenderOnce for Menu {
                 .button
                 .clone()
                 .on_trigger(move |window, cx| Sheet::actions(title.clone(), commands.clone(), window, cx));
+            if self.quiet {
+                return quiet(&opens, window, cx);
+            }
             return drawn(&opens).into_any_element();
         }
         let groups = self.groups;
@@ -148,6 +164,32 @@ impl RenderOnce for Menu {
             })
             .into_any_element()
     }
+}
+
+/// `button` as a line of text that opens its menu: the icon and the label in
+/// the secondary text colour, a caret after them, as tall as two lines of
+/// small text: the line under a title, not a control beside it. Its text
+/// starts at its own edge, on the spine of the title above it.
+fn quiet(button: &Command, window: &mut Window, cx: &mut App) -> AnyElement {
+    let scale = cx.scale();
+    let palette = cx.palette();
+    let pressed = button.clone();
+    crate::prim::key_pressable(button.id().clone(), window, cx)
+        .flex()
+        .flex_row()
+        .items_center()
+        .gap(scale.space_xs)
+        .h(scale.space_xl)
+        .max_w_full()
+        .min_w_0()
+        .text_size(scale.body)
+        .text_color(palette.on_surface_variant)
+        .children(button.icon_ref().cloned().map(|icon| icon.small().flex_none()))
+        .child(div().truncate().min_w_0().child(button.label().clone()))
+        .child(Icon::new(IconName::ChevronDown).xsmall().flex_none())
+        .on_click(move |_, window, cx| pressed.run(window, cx))
+        .test_support()
+        .into_any_element()
 }
 
 /// A menu [`Menu::open_at`] opened, where it was asked for.

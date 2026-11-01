@@ -3,8 +3,10 @@
 //!
 //! **Pointer**: gpui-kit's segmented look, a muted track with the chosen
 //! segment raised on it.
-//! **Touch**: Material 3's connected button group, 40 dp tall, the chosen
-//! segment filled with the primary and rounded fully.
+//! **Touch**: the same shape at a finger's size: a pill-shaped tonal track
+//! as tall as a control, the chosen segment a pill of the secondary
+//! container inside it, concentric with the track. The primary is left to
+//! the page's one primary action.
 //!
 //! Controlled: the owner keeps which segment is on.
 
@@ -78,10 +80,9 @@ impl RenderOnce for Segments {
         let scale = cx.scale();
         let palette = cx.palette();
         let theme = cx.theme();
-        let count = self.segments.len();
         let touch = env.input() == InputMode::Touch;
         let fill = self.fill;
-        let segments = self.segments.into_iter().enumerate().map(|(ix, (key, label, icon))| {
+        let segments = self.segments.into_iter().map(|(key, label, icon)| {
             let on = key == self.selected;
             let on_change = self.on_change.clone();
             let chosen = key.clone();
@@ -100,22 +101,13 @@ impl RenderOnce for Segments {
                     }
                 });
             if touch {
-                let (first, last) = (ix == 0, ix + 1 == count);
-                let big = rems(1.25);
-                let small = rems(0.5);
                 segment
                     .when(fill, |segment| segment.flex_1())
-                    .h(scale.control)
+                    .h_full()
                     .px_4()
-                    .bg(if on { palette.primary } else { palette.surface_high })
-                    .text_color(if on { palette.on_primary } else { palette.on_surface })
-                    .when(on, |s| s.rounded(big))
-                    .when(!on, |s| {
-                        s.rounded_tl(if first { big } else { small })
-                            .rounded_bl(if first { big } else { small })
-                            .rounded_tr(if last { big } else { small })
-                            .rounded_br(if last { big } else { small })
-                    })
+                    .rounded_full()
+                    .when(on, |s| s.bg(palette.secondary_container).text_color(palette.on_secondary_container))
+                    .when(!on, |s| s.text_color(palette.on_surface_variant))
                     .test_support()
                     .into_any_element()
             } else {
@@ -130,7 +122,13 @@ impl RenderOnce for Segments {
             }
         });
         if touch {
-            let track = h_flex().id(self.id).gap(rems(0.125));
+            let track = h_flex()
+                .id(self.id)
+                .h(scale.control)
+                .p(rems(0.25))
+                .gap(rems(0.25))
+                .rounded_full()
+                .bg(palette.surface_high);
             let track = if fill { track.w_full() } else { track };
             track.children(segments).into_any_element()
         } else {

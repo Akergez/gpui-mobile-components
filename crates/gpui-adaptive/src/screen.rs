@@ -45,7 +45,7 @@ pub struct Screen {
     root: bool,
     commands: Vec<Command>,
     banner: Option<AnyElement>,
-    switcher: Option<AnyElement>,
+    switcher: Option<crate::Menu>,
     content: Option<AnyElement>,
     scrolls: bool,
     column: bool,
@@ -138,11 +138,12 @@ impl Screen {
     }
 
     /// What the page is about, and the way to another: an account, a
-    /// workspace, usually a [`crate::Menu`] that is a `choice`. **Pointer**:
-    /// in the bar after the title. **Touch**: under a root page's large
-    /// title; in the app bar after the title otherwise.
-    pub fn switcher(mut self, switcher: impl IntoElement) -> Self {
-        self.switcher = Some(switcher.into_any_element());
+    /// workspace, as a [`crate::Menu`] that is a `choice`. **Pointer**: in
+    /// the bar after the title. **Touch**: under a root page's large title, a
+    /// line of text with a caret on the title's edge; in the app bar after
+    /// the title otherwise.
+    pub fn switcher(mut self, switcher: crate::Menu) -> Self {
+        self.switcher = Some(switcher);
         self
     }
 
@@ -311,7 +312,7 @@ impl Screen {
         let switcher = self.switcher.take();
         // Under a root page's large title the switcher has the page's width;
         // in the bar beside its icons it would not.
-        let (under_title, after_heading) = if large { (switcher, None) } else { (None, switcher) };
+        let (under_title, after_heading) = if large { (switcher.map(crate::Menu::quiet), None) } else { (None, switcher) };
         let heading = v_flex()
             .flex_1()
             .min_w_0()
@@ -324,29 +325,42 @@ impl Screen {
                     }))
             });
         let after_heading = after_heading.map(|switcher| div().flex_none().min_w_0().overflow_hidden().child(switcher));
-        // A root page's header is the large title alone, its actions beside
-        // it: a separate bar above it would stand empty but for its icons and
-        // push the title down below the screen's top.
+        // A root page's header is the large title with its actions beside
+        // it, on one centre line in a row as tall as a target: a separate
+        // bar above it would stand empty but for its icons and push the title
+        // down below the screen's top. The subtitle and the switcher follow
+        // on the title's edge.
         let header: AnyElement = if large {
-            h_flex()
+            v_flex()
                 .flex_none()
                 .w_full()
-                .items_start()
-                .gap_2()
-                .px_4()
-                .pb_3()
+                .pl_4()
+                .pr_1()
+                .pb(scale.space_s)
                 .child(
-                    v_flex()
-                        .flex_1()
-                        .min_w_0()
-                        .child(div().truncate().text_size(scale.title_root).child(self.title.clone()))
-                        .children(self.subtitle.clone().map(|subtitle| {
-                            div().truncate().text_size(scale.small).text_color(palette.on_surface_variant).child(subtitle)
-                        }))
-                        .children(under_title.map(|switcher| h_flex().pt_3().child(switcher))),
+                    h_flex()
+                        .h(scale.target)
+                        .gap_1()
+                        .child(
+                            div()
+                                .flex_1()
+                                .min_w_0()
+                                .truncate()
+                                .text_size(scale.title_root)
+                                .child(self.title.clone()),
+                        )
+                        .children(shown.iter().map(|c| c.icon_button(env)))
+                        .children(more),
                 )
-                .children(shown.iter().map(|c| c.icon_button(env)))
-                .children(more)
+                .children(self.subtitle.clone().map(|subtitle| {
+                    div()
+                        .pr_3()
+                        .truncate()
+                        .text_size(scale.small)
+                        .text_color(palette.on_surface_variant)
+                        .child(subtitle)
+                }))
+                .children(under_title.map(|switcher| h_flex().pr_3().min_w_0().child(switcher)))
                 .into_any_element()
         } else {
             h_flex()

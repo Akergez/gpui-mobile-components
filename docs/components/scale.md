@@ -16,7 +16,7 @@ Every length is in rems, so both skins follow the theme's base font, which is th
 | `rail` / `sidebar` | 3.75 / 14 rem | 5 / 17.5 rem |
 | `fab` | 3.5 rem | 3.5 rem (56 dp) |
 | `radius_control` / `container` / `sheet` | 0.375 / 0.5 / 0.625 rem | 1.25 / 0.75 / 1.75 rem |
-| `title` / `title_root` | 0.875 / 0.875 rem | 1.25 / 1.75 rem |
+| `title` / `title_root` | 0.875 / 0.875 rem | 1.25 / 1.5 rem |
 | `body` / `small` | 0.8125 / 0.75 rem | 1 / 0.875 rem |
 | `page` (transition) | 120 ms | 300 ms |
 | `sheet_open` / `sheet_close` / `settle` | 160 / 120 / 120 ms | 260 / 200 / 180 ms |
