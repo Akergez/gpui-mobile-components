@@ -27,12 +27,28 @@ pub struct Segments {
     segments: Vec<(SharedString, SharedString, Option<Icon>)>,
     selected: SharedString,
     on_change: Option<OnChange>,
+    fill: bool,
 }
 
 impl Segments {
     /// `selected` is the key of the segment on.
     pub fn new(id: impl Into<ElementId>, selected: impl Into<SharedString>) -> Self {
-        Segments { id: id.into(), segments: Vec::new(), selected: selected.into(), on_change: None }
+        Segments {
+            id: id.into(),
+            segments: Vec::new(),
+            selected: selected.into(),
+            on_change: None,
+            fill: true,
+        }
+    }
+
+    /// Whether the group takes the width it is given and divides it among
+    /// its segments (the default: a switch that spans its page or card).
+    /// With `false` the group hugs its segments — for a row beside something
+    /// else, where a full width would leave the rest of the row nothing.
+    pub fn fill(mut self, fill: bool) -> Self {
+        self.fill = fill;
+        self
     }
 
     pub fn segment(mut self, key: impl Into<SharedString>, label: impl Into<SharedString>) -> Self {
@@ -64,6 +80,7 @@ impl RenderOnce for Segments {
         let theme = cx.theme();
         let count = self.segments.len();
         let touch = env.input() == InputMode::Touch;
+        let fill = self.fill;
         let segments = self.segments.into_iter().enumerate().map(|(ix, (key, label, icon))| {
             let on = key == self.selected;
             let on_change = self.on_change.clone();
@@ -87,7 +104,7 @@ impl RenderOnce for Segments {
                 let big = rems(1.25);
                 let small = rems(0.5);
                 segment
-                    .flex_1()
+                    .when(fill, |segment| segment.flex_1())
                     .h(scale.control)
                     .px_4()
                     .bg(if on { palette.primary } else { palette.surface_high })
@@ -113,7 +130,9 @@ impl RenderOnce for Segments {
             }
         });
         if touch {
-            h_flex().id(self.id).w_full().gap(rems(0.125)).children(segments).into_any_element()
+            let track = h_flex().id(self.id).gap(rems(0.125));
+            let track = if fill { track.w_full() } else { track };
+            track.children(segments).into_any_element()
         } else {
             div()
                 .id(self.id)

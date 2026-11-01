@@ -278,9 +278,13 @@ impl Screen {
             .into_any_element()
     }
 
-    fn render_touch(mut self, env: Env, cx: &mut App) -> AnyElement {
+    fn render_touch(mut self, env: Env, window: &mut Window, cx: &mut App) -> AnyElement {
         let palette = cx.palette();
         let scale = cx.scale();
+        // The page begins at the top of the window: the frame leaves no room
+        // for the status bar, the page's own surface fills the strip behind
+        // it, and the header starts under the bar's transparent area.
+        let top = crate::insets::Insets::of(window).top;
         let (primary, mut shown, mut overflow) = self.split();
         // Two icons fit beside the title; the rest go behind "⋮".
         if shown.len() > 2 {
@@ -320,16 +324,44 @@ impl Screen {
                     }))
             });
         let after_heading = after_heading.map(|switcher| div().flex_none().min_w_0().overflow_hidden().child(switcher));
-        let large_title = large.then(|| {
-            v_flex()
+        // A root page's header is the large title alone, its actions beside
+        // it: a separate bar above it would stand empty but for its icons and
+        // push the title down below the screen's top.
+        let header: AnyElement = if large {
+            h_flex()
+                .flex_none()
+                .w_full()
+                .items_start()
+                .gap_2()
                 .px_4()
                 .pb_3()
-                .child(div().text_size(scale.title_root).child(self.title.clone()))
-                .children(self.subtitle.clone().map(|subtitle| {
-                    div().text_size(scale.small).text_color(palette.on_surface_variant).child(subtitle)
-                }))
-                .children(under_title.map(|switcher| h_flex().pt_3().child(switcher)))
-        });
+                .child(
+                    v_flex()
+                        .flex_1()
+                        .min_w_0()
+                        .child(div().truncate().text_size(scale.title_root).child(self.title.clone()))
+                        .children(self.subtitle.clone().map(|subtitle| {
+                            div().truncate().text_size(scale.small).text_color(palette.on_surface_variant).child(subtitle)
+                        }))
+                        .children(under_title.map(|switcher| h_flex().pt_3().child(switcher))),
+                )
+                .children(shown.iter().map(|c| c.icon_button(env)))
+                .children(more)
+                .into_any_element()
+        } else {
+            h_flex()
+                .flex_none()
+                .w_full()
+                .h(scale.bar)
+                .px_1()
+                .gap_1()
+                .children(up)
+                .child(heading)
+                .children(after_heading)
+                .children(shown.iter().map(|c| c.icon_button(env)))
+                .children(more)
+                .into_any_element()
+        };
         let fab = primary.map(|command| fab(&command, cx));
         let content = self.render_content(env);
         // A desktop window drawn in the touch skin (a preview) still needs its
@@ -338,22 +370,11 @@ impl Screen {
             .then(|| title_bar(div(), cx));
         v_flex()
             .size_full()
+            .pt(top)
             .children(chrome)
             .bg(palette.surface)
             .text_color(palette.on_surface)
-            .child(
-                h_flex()
-                    .flex_none()
-                    .h(scale.bar)
-                    .px_1()
-                    .gap_1()
-                    .children(up)
-                    .child(heading)
-                    .children(after_heading)
-                    .children(shown.iter().map(|c| c.icon_button(env)))
-                    .children(more),
-            )
-            .children(large_title)
+            .child(header)
             .children(self.banner)
             .child(div().flex_1().min_h_0().relative().child(content).children(fab))
             .into_any_element()
@@ -414,7 +435,7 @@ impl RenderOnce for Screen {
         let env = Env::of(window, cx);
         match env.input() {
             InputMode::Pointer => self.render_pointer(env, cx),
-            InputMode::Touch => self.render_touch(env, cx),
+            InputMode::Touch => self.render_touch(env, window, cx),
         }
     }
 }

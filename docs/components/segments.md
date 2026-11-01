@@ -23,6 +23,8 @@ Segments::new("kind", self.kind.clone())
 
 The value is controlled: the owner keeps the selected key. `on_change` is not called for the segment already on. Each segment's element id is its key.
 
+On a finger the group takes the width it is given and divides it among its segments: a switch that spans its page or card. `.fill(false)` makes it hug its segments instead, for a row where it stands beside something else (a card's title): a full width would leave the rest of the row nothing, and its text would break a letter to a line.
+
 ## When not to use
 
 - More than four options, or options that are not all visible at once: use [Choice](choice.md).

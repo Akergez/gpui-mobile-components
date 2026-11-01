@@ -99,7 +99,11 @@ impl RenderOnce for AppFrame {
         let top: AnyElement = if self.under_status_bar {
             div().into_any_element()
         } else if env.input() == InputMode::Touch && gpui_kit::is_mobile() {
-            div().flex_none().h(insets.top).into_any_element()
+            // A phone's pages begin at the top of the window: their surface
+            // fills the strip behind the status bar and their headers keep
+            // clear of it themselves (see Screen's touch skin). A plain
+            // spacer here would read as a gap above the header.
+            div().into_any_element()
         } else if !self.title_bar {
             div().into_any_element()
         } else {
