@@ -306,6 +306,14 @@ impl Shell {
             .child(DateField::new(&self.date).label("Date"))
             .child(Choice::new(&self.agent).label("Agent"))
             .child(
+                gpui_adaptive::Chips::new("categories")
+                    .all("All")
+                    .chip("groceries", "Groceries", true)
+                    .dot(gpui_kit::hsla(0.08, 0.65, 0.5, 1.))
+                    .chip("transport", "Transport", false)
+                    .dot(gpui_kit::hsla(0.6, 0.65, 0.5, 1.)),
+            )
+            .child(
                 Toggle::new("sync", "Sync on start", self.sync)
                     .description("Pull changes when the window opens")
                     .immediate(true)
@@ -315,7 +323,7 @@ impl Shell {
                     })),
             );
         screen("input", "Input")
-            .subtitle("TextField, DateField, Choice, Segments, Toggle, Form")
+            .subtitle("TextField, DateField, Choice, Chips, Segments, Toggle, Form")
             .root(true)
             .command(Command::new("new-expense", "New expense").icon(IconName::Plus).primary().on_trigger(open_form))
             .content(content)
@@ -381,10 +389,10 @@ impl Shell {
 
     fn render_records(&self) -> AnyElement {
         let rows = [
-            ("412", "12 Oct", "Groceries", "Weekly shop", "−1 240"),
-            ("411", "12 Oct", "Pharmacy", "", "−380"),
-            ("410", "11 Oct", "Transport", "Metro card", "−60"),
-            ("409", "10 Oct", "Salary", "October", "+95 000"),
+            ("412", "12 Oct", "Groceries", "Weekly shop", "−1 240", Lucide::ShoppingCart, 0.08),
+            ("411", "12 Oct", "Pharmacy", "", "−380", Lucide::Pill, 0.95),
+            ("410", "11 Oct", "Transport", "Metro card", "−60", Lucide::Bus, 0.6),
+            ("409", "10 Oct", "Salary", "October", "+95 000", Lucide::Banknote, 0.38),
         ];
         screen("records", "Records")
             .subtitle("A table with room, a list without")
@@ -392,12 +400,13 @@ impl Shell {
             .content(
                 Records::new("records-table")
                     .column(Column::new("date", "Date").width(rems(6.)).sortable().role(ColumnRole::Subtitle))
-                    .column(Column::new("category", "Category").role(ColumnRole::Title))
-                    .column(Column::new("comment", "Comment"))
+                    .column(Column::new("category", "Category").grow(2.).role(ColumnRole::Title))
+                    .column(Column::new("comment", "Comment").muted())
                     .column(Column::new("amount", "Amount").width(rems(7.)).numeric().role(ColumnRole::Trailing))
                     .sorted_by("date", false)
-                    .records(rows.iter().map(|(id, date, category, comment, amount)| {
+                    .records(rows.iter().map(|(id, date, category, comment, amount, icon, hue)| {
                         Record::new(SharedString::from(format!("record-{id}")), [*date, *category, *comment, *amount])
+                            .tile(*icon, gpui_kit::hsla(*hue, 0.65, 0.5, 1.))
                     })),
             )
             .into_any_element()

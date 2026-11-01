@@ -6,17 +6,18 @@
 //! when the day of the week is what is known, and the two are one value:
 //! typing a date moves the calendar to it, picking a day writes it in.
 //!
-//! **Pointer**: the calendar opens under the field.
+//! **Pointer**: the calendar opens in a popup from the button beside the field.
 //! **Touch**: the calendar opens in a sheet; the field's keyboard is digits.
 
 use chrono::{Datelike, Local, NaiveDate};
 use gpui_kit::component::button::{Button, ButtonVariants};
 use gpui_kit::component::calendar::{Calendar, CalendarEvent, CalendarState, Date};
 use gpui_kit::component::input::{Input, InputEvent, InputState};
-use gpui_kit::component::{IconName, Sizable, v_flex};
+use gpui_kit::component::popover::Popover;
+use gpui_kit::component::{IconName, Sizable, h_flex, v_flex};
 use gpui_kit::prelude::*;
 use gpui_kit::{
-    App, Context, Entity, EventEmitter, Render, RenderOnce, SharedString, Subscription, Window, div,
+    AnyElement, App, Context, Entity, EventEmitter, Render, RenderOnce, SharedString, Subscription, Window, div,
 };
 
 use crate::env::{Env, InputMode, input_mode};
@@ -83,15 +84,19 @@ impl DateFieldState {
                 if !matches!(event, InputEvent::Change) {
                     return;
                 }
+                // What is typed is the value: while it is not a date, there
+                // is none, and a form asking for one says so rather than
+                // saving the last date that was.
                 let typed = parse_date(&input.read(cx).value(), this.near);
-                if let Some(date) = typed
-                    && this.date != Some(date)
-                {
-                    this.date = Some(date);
+                if typed == this.date {
+                    return;
+                }
+                this.date = typed;
+                if let Some(date) = typed {
                     this.calendar.update(cx, |calendar, cx| calendar.set_date(date, window, cx));
                     cx.emit(DateFieldEvent::Change(date));
-                    cx.notify();
                 }
+                cx.notify();
             }),
             cx.subscribe_in(&calendar, window, |this: &mut Self, _, event: &CalendarEvent, window, cx| {
                 let CalendarEvent::Selected(Date::Single(Some(date))) = event else { return };
@@ -101,8 +106,15 @@ impl DateFieldState {
         DateFieldState { input, calendar, date, near, open: false, _subscriptions: subscriptions }
     }
 
+    /// The date in the field, or nothing while what is typed there is not
+    /// one.
     pub fn date(&self) -> Option<NaiveDate> {
         self.date
+    }
+
+    /// Puts the keyboard in the field.
+    pub fn focus(&self, window: &mut Window, cx: &mut App) {
+        self.input.update(cx, |input, cx| input.focus(window, cx));
     }
 
     /// Sets the date from the owner, without an event.
@@ -155,7 +167,7 @@ impl Render for CalendarSheet {
             .pb_4()
             .gap_3()
             .child(div().text_size(scale.title).child("Select date"))
-            .child(Calendar::new(&self.calendar).large())
+            .child(Calendar::new(&self.calendar).large().w_full())
     }
 }
 
@@ -184,15 +196,48 @@ impl RenderOnce for DateField {
         let state = self.state.read(cx);
         let (input, calendar, open) = (state.input.clone(), state.calendar.clone(), state.open);
         let entity = self.state.clone();
-        let button = Button::new(("date-calendar", self.state.entity_id()))
-            .ghost()
-            .icon(IconName::Calendar)
-            .accessibility_label("Calendar")
-            .with_size(if env.is_touch() { gpui_kit::component::Size::Medium } else { gpui_kit::component::Size::XSmall })
-            .on_click(move |_, window, cx| entity.update(cx, |state, cx| state.toggle_calendar(window, cx)));
-        let field = Input::new(&input).suffix(button);
-        let field = if env.is_touch() { field.large() } else { field.small() };
-        let field = gpui_android_glue::keyboard::on_tap(field, &input, cx);
+        let id = self.state.entity_id();
+        let field: AnyElement = if env.is_touch() {
+            // A finger's calendar is a sheet, from a button at the field's end.
+            let button = Button::new(("date-calendar", id))
+                .ghost()
+                .icon(IconName::Calendar)
+                .accessibility_label("Calendar")
+                .with_size(gpui_kit::component::Size::Medium)
+                .on_click(move |_, window, cx| entity.update(cx, |state, cx| state.toggle_calendar(window, cx)));
+            let field = Input::new(&input).suffix(button).large();
+            gpui_android_glue::keyboard::on_tap(field, &input, cx).into_any_element()
+        } else {
+            // A pointer's calendar opens from the button beside the field, over
+            // whatever is around it: a form's dialog keeps its size, and a day
+            // picked is a press inside the popup, not outside the dialog.
+            let popover = Popover::new(("date-calendar-popup", id))
+                .anchor(gpui_kit::Anchor::TopRight)
+                .trigger(
+                    Button::new(("date-calendar", id))
+                        .outline()
+                        .small()
+                        .icon(IconName::Calendar)
+                        .accessibility_label("Calendar"),
+                )
+                .open(open)
+                .on_open_change(move |open, _, cx| {
+                    let open = *open;
+                    entity.update(cx, |state, cx| {
+                        state.open = open;
+                        cx.notify();
+                    });
+                })
+                // In rems, so that the days still fit their popup when the
+                // text is drawn larger.
+                .content(move |_, _, _| Calendar::new(&calendar).small().border_0().p_0().w(gpui_kit::rems(15.)));
+            h_flex()
+                .w_full()
+                .gap_1()
+                .child(div().flex_1().min_w_0().child(gpui_android_glue::keyboard::on_tap(Input::new(&input).small(), &input, cx)))
+                .child(popover)
+                .into_any_element()
+        };
         v_flex()
             .w_full()
             .gap_1()
@@ -200,7 +245,6 @@ impl RenderOnce for DateField {
                 div().text_size(scale.small).font_weight(gpui_kit::FontWeight::MEDIUM).child(label)
             }))
             .child(field)
-            .when(open && !env.is_touch(), |field| field.child(Calendar::new(&calendar).small()))
     }
 }
 

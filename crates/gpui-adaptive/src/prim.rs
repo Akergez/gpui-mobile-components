@@ -5,12 +5,13 @@
 //!
 //! - [`row`], [`column()`]: flex boxes, the room between things from the scale;
 //! - [`surface`]: a card, a panel or a well;
-//! - [`pressable`]: what can be pressed, with the skin's feedback, and
-//!   [`testable`] to find it in a UI test;
+//! - [`pressable`]: what can be pressed, with the skin's feedback;
+//!   [`key_pressable`] reached by the keyboard too; [`testable`] to find it
+//!   in a UI test;
 //! - [`scroll_y`], [`scroll_x`]: a scroll area locked to its axis for a finger;
 //!   [`Scrolls`] for the application's own scrolling element;
 //! - [`tooltip`], [`spinner`], [`rem_size`];
-//! - [`Text`], [`Markdown`], [`Meter`].
+//! - [`Text`], [`Markdown`], [`Meter`], [`Tile`].
 
 use std::sync::Arc;
 
@@ -78,6 +79,24 @@ pub fn surface(kind: Surface, cx: &App) -> Div {
 /// UI test to find it by its id.
 pub fn pressable(id: impl Into<ElementId>, cx: &App) -> Stateful<Div> {
     crate::touch::pressable(id, env(cx), cx)
+}
+
+/// A [`pressable`] the keyboard reaches too: Tab stops on it, Enter or
+/// Space presses it, and a ring shows where the keyboard is. For the cells
+/// of a grid to choose from (a form's categories, icons), which are not a
+/// list's rows and would otherwise be a pointer's or a finger's alone.
+pub fn key_pressable(id: impl Into<ElementId>, window: &mut Window, cx: &mut App) -> Stateful<Div> {
+    let id = id.into();
+    let focus = window.use_keyed_state(id.clone(), cx, |_, cx| cx.focus_handle()).read(cx).clone();
+    let ring = cx.colors().focus;
+    pressable(id, cx)
+        .track_focus(&focus)
+        .tab_stop(true)
+        .border_1()
+        .border_color(gpui_kit::transparent_black())
+        .focus_visible(move |style| style.border_color(ring))
+        // A press of the pointer or the finger does not leave the ring.
+        .on_mouse_down(gpui_kit::MouseButton::Left, |_, window, _| window.prevent_default())
 }
 
 /// `element`, findable by its id in a UI test (gpui-kit's test driver):
@@ -379,5 +398,63 @@ impl RenderOnce for Meter {
             .rounded_full()
             .bg(colors.sunken)
             .child(div().h_full().rounded_full().bg(colors.accent).w(relative(self.fraction)))
+    }
+}
+
+/// How large a [`Tile`] is.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum TileSize {
+    /// Beside a name in a dense row: a table's cell.
+    Small,
+    /// Leading a [`crate::ListRow`]: small in a pointer's dense row, medium
+    /// in a finger's.
+    #[default]
+    Leading,
+    /// Leading a card, or a cell of a grid to choose from.
+    Medium,
+    /// The preview at the top of an editor.
+    Large,
+}
+
+/// An icon on a tint of its colour: what identifies a thing of the person's
+/// own making (a category, a label) wherever it appears.
+#[derive(IntoElement)]
+pub struct Tile {
+    icon: gpui_kit::component::Icon,
+    color: gpui_kit::Hsla,
+    size: TileSize,
+}
+
+impl Tile {
+    pub fn new(icon: impl Into<gpui_kit::component::Icon>, color: gpui_kit::Hsla) -> Self {
+        Tile { icon: icon.into(), color, size: TileSize::Leading }
+    }
+
+    pub fn size(mut self, size: TileSize) -> Self {
+        self.size = size;
+        self
+    }
+}
+
+impl RenderOnce for Tile {
+    fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
+        let scale = cx.scale();
+        let tile = div()
+            .flex_none()
+            .flex()
+            .items_center()
+            .justify_center()
+            .bg(self.color.opacity(0.16))
+            .text_color(self.color);
+        let size = match (self.size, input_mode(cx)) {
+            (TileSize::Leading, InputMode::Pointer) => TileSize::Small,
+            (TileSize::Leading, InputMode::Touch) => TileSize::Medium,
+            (size, _) => size,
+        };
+        match size {
+            TileSize::Small | TileSize::Leading => tile.size(rems(1.5)).rounded(rems(scale.radius_container.0 * 0.6)).child(self.icon.xsmall()),
+            TileSize::Medium => tile.size(rems(2.5)).rounded(scale.radius_container).child(self.icon),
+            TileSize::Large => tile.size(rems(3.)).rounded(rems(scale.radius_container.0 * 1.5)).child(self.icon.large()),
+        }
     }
 }

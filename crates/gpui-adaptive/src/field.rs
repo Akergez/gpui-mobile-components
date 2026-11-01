@@ -390,9 +390,7 @@ impl RenderOnce for TextField {
         let field = v_flex()
             .w_full()
             .gap_1()
-            .children(self.label.map(|label| {
-                div().text_size(scale.small).font_weight(gpui_kit::FontWeight::MEDIUM).child(label)
-            }))
+            .children(self.label.map(|text| label(text, cx)))
             .child(input)
             .children(under);
         match self.on_key {
@@ -400,6 +398,12 @@ impl RenderOnce for TextField {
             None => field,
         }
     }
+}
+
+/// A field's label, over it: what [`TextField::label`] draws, for the
+/// owner's own control in a form ([`crate::Labelled`]).
+pub(crate) fn label(text: SharedString, cx: &App) -> gpui_kit::Div {
+    div().text_size(cx.scale().small).font_weight(gpui_kit::FontWeight::MEDIUM).child(text)
 }
 
 /// Offers the keys that move through a list to `on_key`, on their way down

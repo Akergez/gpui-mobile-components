@@ -26,7 +26,7 @@ Nothing here is a new engine:
 
 - **Colours** come from `gpui-adaptive-colors`: a Material You scheme from one seed, or a Zed theme the person wears. The intents read them through `cx.theme()`; the touch skin's extra roles come from [`Palette`](components/palette.md), which falls back to the theme while a Zed theme is worn. An application reads them by role, for its skin, with `cx.colors()` ([Primitives](components/primitives.md)).
 - **Phone plumbing** comes from `gpui-android-glue`: back (layers, predictive back, swipe back), the keyboard (insets, purpose, raise on tap) and the system bars. See [Insets](components/insets.md).
-- **Behaviour** is gpui-kit's wherever it has it: `Select`, `Dialog`, `Notification`, `Input`, `Calendar`, `Switch`, `Checkbox`, `Spinner`, `Progress`, `Skeleton`.
+- **Behaviour** is gpui-kit's wherever it has it: `Select`, `Dialog`, `Notification`, `Input`, `Calendar`, `ColorPicker`, `Switch`, `Checkbox`, `Spinner`, `Progress`, `Skeleton`, the charts.
 
 ## Setup
 
@@ -77,6 +77,8 @@ gpui_kit::application().with_assets(gpui_kit::assets::Assets).run(|cx| {
 - [DateField](components/date-field.md): a date, typed or picked
 - [Composer](components/composer.md): writing a message, with suggestions
 - [Setting and Swatches](components/setting.md): a settings page
+- [Chips](components/chips.md): what a view is narrowed to, any number at once
+- [ColorField](components/color-field.md): a colour the person picks
 
 **Content**
 - [ListRow, SectionHeader, Collection](components/list.md)
@@ -110,7 +112,8 @@ Some parts serve one application. It builds them itself, from the intents and th
 | An edit's diff (`ui/work.rs`) | aiddiction | `surface(Well)`, `Text::mono`, the tones of `cx.colors()` |
 | Task board (`ui/board.rs`) | aiddiction | `surface(Panel)`/`surface(Card)`, `scroll_x`, [ItemActions](components/item-actions.md); [Route](components/navigator.md)`::scrolls_sideways` so swipe back does not take the board's direction |
 | Diff review | aiddiction | `diffreview-ui`, a view of its own embedded in a [Screen](components/screen.md) |
-| Charts | money-manager | gpui-kit `chart`; [Segments](components/segments.md) for the month |
+| Charts | money-manager | `gpui_adaptive::chart` painted with `cx.colors().chart` and the categories' colours; [Chips](components/chips.md) for the categories, [Segments](components/segments.md) for the period, `surface(Card)` and `Tile`s for the shares written out |
+| A record's grid of categories | money-manager | `key_pressable` cells with a `Tile` and `Text`, under a `Labelled` in a [Form](components/form.md) |
 | A conversation's feed and its messages | matterfast | gpui `list` with `list_scrollbar`, `Markdown` with its own plugins (custom emoji, mentions) and `on_link_menu` → [Menu](components/menu.md)`::open_at`; hover bar of `pressable`s and [Popup](components/popup.md)s; a long press's [Sheet](components/sheet.md) |
 | The composers, the quick switcher, the title bar's search | matterfast | [TextField](components/text-field.md) with `on_key` driving its own completion list, `on_paste`, the cursor and the selection |
 | An integration's buttons and selects on a card | matterfast | [Command](components/command.md) buttons; the integration's own colour as text on a wash of itself (a `div` with tokens); [Menu](components/menu.md)`::choice` |

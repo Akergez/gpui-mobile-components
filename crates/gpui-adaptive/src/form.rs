@@ -12,7 +12,8 @@
 //! a tablet the dialog moves up with the keyboard.
 //! **Touch**: a bottom sheet (money-manager's `open_form`): the title at
 //! the top with the commitment beside it, the fields scrolling under it, the
-//! whole sheet above the keyboard. Back closes it.
+//! whole sheet above the keyboard. The keyboard's action key in a one-line
+//! field commits, as Enter does on a pointer. Back closes it.
 
 use std::rc::Rc;
 
@@ -183,6 +184,9 @@ impl Render for FormSheet {
                 })
         });
         let dismiss = if commit.is_some() { "Cancel" } else { "Done" };
+        // Enter in a one-line field (a phone keyboard's action key) commits,
+        // as it does in a pointer's dialog: the field lets it go on to here.
+        let on_enter = self.form.commit.clone();
         let also = self.form.also.clone().map(|command| {
             let button = Button::new("form-also").label(command.label().clone()).ghost().large().on_click(
                 move |_, window, cx| {
@@ -196,13 +200,20 @@ impl Render for FormSheet {
         v_flex()
             .flex_grow(1.)
             .min_h_0()
+            .when_some(on_enter, |sheet, commit| {
+                sheet.on_action(move |action: &gpui_kit::component::input::Enter, window, cx| {
+                    if !action.shift && commit(window, cx) {
+                        Sheet::close(window, cx);
+                    }
+                })
+            })
             .child(
                 h_flex()
                     .flex_none()
                     .px_4()
                     .pb_3()
                     .gap_2()
-                    .child(div().flex_1().text_size(scale.title).child(self.form.title.clone()))
+                    .child(div().flex_1().min_w_0().truncate().text_size(scale.title).child(self.form.title.clone()))
                     .children(also)
                     .child(Button::new("form-cancel").label(dismiss).ghost().large().on_click(|_, window, cx| {
                         Sheet::close(window, cx)
@@ -249,5 +260,25 @@ impl Fields {
 impl gpui_kit::RenderOnce for Fields {
     fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
         v_flex().w_full().gap(cx.scale().space_m).children(self.children)
+    }
+}
+
+/// A control of the owner's own in a form (a grid of categories, a row of
+/// days), with a label over it as a [`crate::TextField`] has.
+#[derive(IntoElement)]
+pub struct Labelled {
+    label: SharedString,
+    control: gpui_kit::AnyElement,
+}
+
+impl Labelled {
+    pub fn new(label: impl Into<SharedString>, control: impl IntoElement) -> Self {
+        Labelled { label: label.into(), control: control.into_any_element() }
+    }
+}
+
+impl gpui_kit::RenderOnce for Labelled {
+    fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
+        v_flex().w_full().gap_1().child(crate::field::label(self.label, cx)).child(self.control)
     }
 }

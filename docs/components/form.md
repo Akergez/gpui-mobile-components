@@ -6,7 +6,7 @@ A form is a titled set of fields with Cancel and one commitment, such as "New ex
 
 | Pointer | Touch |
 |---|---|
-| a gpui-kit dialog (aiddiction's `ui/forms.rs`): title, fields, Cancel and the commitment; Enter commits, Escape cancels; on a tablet the dialog moves to the top while the keyboard is up and its fields scroll | a [bottom sheet](sheet.md) (money-manager's `open_form`): the title with Cancel and the commitment beside it at the top, the fields scrolling under it, the sheet above the keyboard; back closes it |
+| a gpui-kit dialog (aiddiction's `ui/forms.rs`): title, fields, Cancel and the commitment; Enter commits, Escape cancels; on a tablet the dialog moves to the top while the keyboard is up and its fields scroll | a [bottom sheet](sheet.md) (money-manager's `open_form`): the title with Cancel and the commitment beside it at the top, the fields scrolling under it, the sheet above the keyboard; the keyboard's action key in a one-line field commits; back closes it |
 
 | Pointer | Touch |
 |---|---|
@@ -58,5 +58,9 @@ impl Render for ServerForm {
     }
 }
 ```
+
+A control of the owner's own (money-manager's grid of categories, its Today and Yesterday) takes a label the way a field does with `Labelled::new("Category", grid)`.
+
+A form opened from a form opens over it, in either skin, and closing it uncovers the first as it was: money-manager's "New…" among a record's categories.
 
 A list inside a form (the server's folders) is a `Collection::boxed(height)`: a framed box of a fixed height that scrolls, so the form does not change size as the rows change.

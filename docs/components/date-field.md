@@ -15,7 +15,7 @@ Accepted forms (short ones are read against the field's date, or today):
 
 | Pointer | Touch |
 |---|---|
-| the calendar (gpui-kit `Calendar`) opens under the field | the calendar opens in a [sheet](sheet.md); picking a day closes it; the field's keyboard is digits |
+| the calendar (gpui-kit `Calendar`) opens in a popup from the button beside the field, over the form rather than inside it | the calendar opens in a [sheet](sheet.md); picking a day closes it; the field's keyboard is digits |
 
 ![](../images/phone-input.png)
 
@@ -30,8 +30,8 @@ date.update(cx, |d, cx| d.set_date(day, window, cx));   // from the owner, witho
 date.read(cx).date();                                    // Option<NaiveDate>
 ```
 
-An event is emitted only when a whole date is typed or picked, and only when it differs from the current one.
+An event is emitted only when a whole date is typed or picked, and only when it differs from the current one. While what is typed is not a date, `date()` is `None`: a form asking for one says so instead of saving the date there was before. `focus(window, cx)` puts the keyboard in the field.
 
 ## Tests
 
-`date_field::tests` covers the full and short forms, two-digit years, impossible dates (`31.02`) and words.
+`date_field::tests` covers the full and short forms, two-digit years, impossible dates (`31.02`) and words. `tests/ui.rs`: `a_date_field_has_no_date_while_what_is_typed_is_not_one`.

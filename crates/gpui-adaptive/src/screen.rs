@@ -45,6 +45,7 @@ pub struct Screen {
     root: bool,
     commands: Vec<Command>,
     banner: Option<AnyElement>,
+    switcher: Option<AnyElement>,
     content: Option<AnyElement>,
     scrolls: bool,
     column: bool,
@@ -62,6 +63,7 @@ impl Screen {
             root: false,
             commands: Vec::new(),
             banner: None,
+            switcher: None,
             content: None,
             scrolls: true,
             column: false,
@@ -132,6 +134,15 @@ impl Screen {
     /// A standing state of the page under the bar: a [`crate::Banner`].
     pub fn banner(mut self, banner: Option<impl IntoElement>) -> Self {
         self.banner = banner.map(|banner| banner.into_any_element());
+        self
+    }
+
+    /// What the page is about, and the way to another: an account, a
+    /// workspace, usually a [`crate::Menu`] that is a `choice`. **Pointer**:
+    /// in the bar after the title. **Touch**: under a root page's large
+    /// title; in the app bar after the title otherwise.
+    pub fn switcher(mut self, switcher: impl IntoElement) -> Self {
+        self.switcher = Some(switcher.into_any_element());
         self
     }
 
@@ -251,6 +262,7 @@ impl Screen {
                                 div().min_w_0().truncate().text_size(scale.small).text_color(muted).child(subtitle)
                             })),
                     )
+                    .children(self.switcher.take().map(|switcher| div().flex_none().child(switcher)))
                     .children(status)
                     .children(shown.iter().map(|c| {
                         if roomy { c.button(env).into_any_element() } else { c.icon_button(env).into_any_element() }
@@ -292,6 +304,10 @@ impl Screen {
                 .on_click(move |_, window, cx| Sheet::actions(Some(title.clone()), overflow.clone(), window, cx))
         });
         let large = self.root && self.up.is_none();
+        let switcher = self.switcher.take();
+        // Under a root page's large title the switcher has the page's width;
+        // in the bar beside its icons it would not.
+        let (under_title, after_heading) = if large { (switcher, None) } else { (None, switcher) };
         let heading = v_flex()
             .flex_1()
             .min_w_0()
@@ -303,6 +319,7 @@ impl Screen {
                         div().truncate().text_size(scale.small).text_color(palette.on_surface_variant).child(subtitle)
                     }))
             });
+        let after_heading = after_heading.map(|switcher| div().flex_none().min_w_0().overflow_hidden().child(switcher));
         let large_title = large.then(|| {
             v_flex()
                 .px_4()
@@ -311,6 +328,7 @@ impl Screen {
                 .children(self.subtitle.clone().map(|subtitle| {
                     div().text_size(scale.small).text_color(palette.on_surface_variant).child(subtitle)
                 }))
+                .children(under_title.map(|switcher| h_flex().pt_3().child(switcher)))
         });
         let fab = primary.map(|command| fab(&command, cx));
         let content = self.render_content(env);
@@ -331,6 +349,7 @@ impl Screen {
                     .gap_1()
                     .children(up)
                     .child(heading)
+                    .children(after_heading)
                     .children(shown.iter().map(|c| c.icon_button(env)))
                     .children(more),
             )
@@ -376,6 +395,9 @@ fn fab(command: &Command, cx: &App) -> AnyElement {
         .text_color(palette.on_primary_container)
         .shadow_lg()
         .cursor_pointer()
+        // It lies over the content, and a press on it is its alone: the row
+        // under it must not open too.
+        .occlude()
         .when(command.is_disabled(), |fab| fab.opacity(0.4))
         .active(move |style| style.opacity(0.88))
         .children(command.icon_ref().cloned().map(|icon| icon.large()))

@@ -895,3 +895,194 @@ fn a_menu_at_a_point_is_a_popup_on_a_pointer(cx: &mut TestAppContext) {
 fn a_menu_at_a_point_is_a_sheet_on_a_phone(cx: &mut TestAppContext) {
     assert!(a_menu_opens_at_a_point(InputMode::Touch, PHONE, cx));
 }
+
+// A FAB over a list: the press is the FAB's alone.
+
+struct Rows {
+    created: Rc<Cell<u32>>,
+    opened: Rc<Cell<u32>>,
+}
+
+impl Render for Rows {
+    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+        let created = self.created.clone();
+        let rows = (0..40u64).map(|ix| {
+            let opened = self.opened.clone();
+            ListRow::new(("row", ix), format!("Row {ix}")).on_activate(move |_, _| opened.set(opened.get() + 1))
+        });
+        AppFrame::new("Rows").child(
+            Screen::new("rows", "Rows")
+                .root(true)
+                .command(
+                    Command::new("new-row", "New row")
+                        .icon(IconName::Plus)
+                        .primary()
+                        .on_trigger(move |_, _| created.set(created.get() + 1)),
+                )
+                .content(gpui_adaptive::Collection::new("rows-list").children(rows)),
+        )
+    }
+}
+
+#[gpui_kit::test]
+fn a_fab_over_a_row_takes_the_press_alone(cx: &mut TestAppContext) {
+    setup(InputMode::Touch, cx);
+    let (created, opened) = (Rc::new(Cell::new(0)), Rc::new(Cell::new(0)));
+    let shared = (created.clone(), opened.clone());
+    let (handle, _) = open(PHONE, cx, move |_, _| Rows { created: shared.0, opened: shared.1 });
+    cx.update_window(handle, |_, window, cx| {
+        window.render_frame(cx);
+        window.click("new-row", cx);
+    })
+    .unwrap();
+    assert_eq!(created.get(), 1, "the FAB runs its command");
+    assert_eq!(opened.get(), 0, "the row under the FAB does not open");
+}
+
+// Filter chips say which chip was pressed, and "All" as none.
+
+struct Filters {
+    pressed: Rc<std::cell::RefCell<Vec<Option<SharedString>>>>,
+}
+
+impl Render for Filters {
+    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+        let pressed = self.pressed.clone();
+        AppFrame::new("Filters").child(
+            gpui_adaptive::Chips::new("chips")
+                .all("All")
+                .chip("food", "Food", false)
+                .dot(gpui_kit::hsla(0.1, 0.8, 0.5, 1.))
+                .chip("rent", "Rent", true)
+                .on_toggle(move |key, _, _| pressed.borrow_mut().push(key.cloned())),
+        )
+    }
+}
+
+#[gpui_kit::test]
+fn a_chip_is_told_by_its_key_and_all_as_none_in_both_skins(cx: &mut TestAppContext) {
+    for (input, window_size) in [(InputMode::Pointer, DESKTOP), (InputMode::Touch, PHONE)] {
+        setup(input, cx);
+        let pressed = Rc::new(std::cell::RefCell::new(Vec::new()));
+        let shared = pressed.clone();
+        let (handle, _) = open(window_size, cx, move |_, _| Filters { pressed: shared });
+        cx.update_window(handle, |_, window, cx| {
+            window.render_frame(cx);
+            window.click((gpui_kit::ElementId::from("chips"), SharedString::from("food")), cx);
+            window.click((gpui_kit::ElementId::from("chips"), SharedString::from("all")), cx);
+        })
+        .unwrap();
+        assert_eq!(*pressed.borrow(), vec![Some(SharedString::from("food")), None], "{input:?}");
+    }
+}
+
+// Records that fill the page lay out only the rows in view.
+
+struct Ledger {
+    scroll: gpui_adaptive::RecordsScroll,
+    opened: Rc<std::cell::RefCell<Vec<gpui_kit::ElementId>>>,
+}
+
+impl Render for Ledger {
+    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+        use gpui_adaptive::{Column, ColumnRole, Record, Records};
+        let opened = self.opened.clone();
+        let records = (0..1000u64).map(|ix| {
+            Record::new(("record", ix), [format!("{ix}"), format!("Item {ix}"), format!("{}.00", ix * 3)])
+                .tile(IconName::Star, gpui_kit::hsla(0.6, 0.7, 0.5, 1.))
+        });
+        AppFrame::new("Ledger").child(
+            Screen::new("ledger", "Ledger").root(true).scrolls(false).content(
+                Records::new("ledger-records")
+                    .column(Column::new("id", "ID").grow(1.).muted())
+                    .column(Column::new("name", "Name").grow(3.).role(ColumnRole::Title))
+                    .column(Column::new("amount", "Amount").grow(2.).numeric().role(ColumnRole::Trailing))
+                    .records(records)
+                    .fill(&self.scroll)
+                    .on_activate(move |id, _, _| opened.borrow_mut().push(id.clone())),
+            ),
+        )
+    }
+}
+
+#[gpui_kit::test]
+fn records_that_fill_the_page_lay_out_only_the_rows_in_view_in_both_skins(cx: &mut TestAppContext) {
+    for (input, window_size) in [(InputMode::Pointer, DESKTOP), (InputMode::Touch, PHONE)] {
+        setup(input, cx);
+        let opened = Rc::new(std::cell::RefCell::new(Vec::new()));
+        let shared = opened.clone();
+        let (handle, _) = open(window_size, cx, move |_, _| Ledger { scroll: Default::default(), opened: shared });
+        cx.update_window(handle, |_, window, cx| {
+            window.render_frame(cx);
+            assert!(window.try_find(("record", 2u64)).is_some(), "{input:?}: a row in view is laid out");
+            assert!(window.try_find(("record", 900u64)).is_none(), "{input:?}: a row far below is not");
+            window.click(("record", 2u64), cx);
+        })
+        .unwrap();
+        assert_eq!(*opened.borrow(), vec![gpui_kit::ElementId::from(("record", 2u64))], "{input:?}");
+    }
+}
+
+// A date field holds the date typed, and none while what is typed is not one.
+
+struct Day {
+    date: Entity<gpui_adaptive::DateFieldState>,
+}
+
+impl Render for Day {
+    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+        AppFrame::new("Day").child(gpui_adaptive::DateField::new(&self.date).label("Date"))
+    }
+}
+
+#[gpui_kit::test]
+fn a_date_field_has_no_date_while_what_is_typed_is_not_one(cx: &mut TestAppContext) {
+    setup(InputMode::Pointer, cx);
+    let (handle, view) = open(DESKTOP, cx, |window, cx| Day {
+        date: cx.new(|cx| gpui_adaptive::DateFieldState::new(None, window, cx)),
+    });
+    let date = cx
+        .update_window(handle, |_, window, cx| {
+            window.render_frame(cx);
+            let date = view.read(cx).date.clone();
+            date.update(cx, |date, cx| date.focus(window, cx));
+            window.input("2026-10-12", cx);
+            date
+        })
+        .unwrap();
+    let typed = cx.update(|cx| date.read(cx).date());
+    assert_eq!(typed, chrono::NaiveDate::from_ymd_opt(2026, 10, 12));
+    cx.update_window(handle, |_, window, cx| window.input("x", cx)).unwrap();
+    assert_eq!(cx.update(|cx| date.read(cx).date()), None, "a date with more typed after it is not a date");
+}
+
+// A switcher is on the page in both skins.
+
+struct Switching;
+
+impl Render for Switching {
+    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+        AppFrame::new("Switching").child(
+            Screen::new("switching", "Records")
+                .root(true)
+                .switcher(gpui_adaptive::Menu::new(Command::new("account", "Card · 12.00")).choice().command(Command::new("cash", "Cash")))
+                .command(Command::new("sync", "Sync").icon(IconName::Inbox))
+                .content(div().child("Nothing yet")),
+        )
+    }
+}
+
+#[gpui_kit::test]
+fn a_switcher_is_on_the_page_in_both_skins(cx: &mut TestAppContext) {
+    for (input, window_size) in [(InputMode::Pointer, DESKTOP), (InputMode::Touch, PHONE)] {
+        setup(input, cx);
+        let (handle, _) = open(window_size, cx, |_, _| Switching);
+        let found = cx
+            .update_window(handle, |_, window, cx| {
+                window.render_frame(cx);
+                window.try_find("account").is_some()
+            })
+            .unwrap();
+        assert!(found, "{input:?}");
+    }
+}

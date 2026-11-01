@@ -6,7 +6,7 @@
 |---|---|
 | ![](docs/images/desktop-person.png) | ![](docs/images/phone-lists.png) |
 
-- `crates/gpui-adaptive`: the design system (28 intents and foundations).
+- `crates/gpui-adaptive`: the design system (30 intents and foundations).
 - `crates/gallery`: every intent in one window, in either skin.
 - `docs/`: [the documentation](docs/README.md), one page per component, plus [testing](docs/testing.md).
 - `design/`: the proposal's previews, as uploaded to Claude Design.

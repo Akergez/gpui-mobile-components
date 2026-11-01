@@ -13,6 +13,8 @@ An application has parts no intent is: aiddiction's agent steps, its plan, its b
 | `row()`, `column()` | flex boxes; the gap is the scale's |
 | `surface(Surface::Card \| Panel \| Well, cx)` | a card (bordered, raised), a panel (sunken, holds cards), a well (sunken, for machine text) |
 | `pressable(id, cx)` | a row that can be pressed: hover and press colours on a pointer, the pressed layer on a finger. `testable(el)` finishes it so a UI test finds it by its id |
+| `key_pressable(id, window, cx)` | a pressable the keyboard reaches too: Tab stops on it, Enter or Space presses it, a ring shows the focus. For the cells of a grid to choose from (a form's categories, a category's icons) |
+| `Tile::new(icon, color)` | an icon on a 16% tint of its colour: what identifies a thing of the person's own making (a category). `TileSize::Small` beside a name in a table, `Leading` before a list row's title (small on a pointer, medium on a finger), `Medium` in a card or a grid, `Large` atop an editor |
 | `scroll_y(id, cx, content)`, `scroll_x(id, cx, row)` | a scroll area, locked to its axis for a finger |
 | `Scrolls`: `.scrolls_y()`, `.scrolls_x()` | scrolling along one axis on an element laid out by the application (a list of bounded height in a popup, a strip of tabs), the axis locked |
 | `list_scrollbar(holder, &list_state, cx)` | a scrollbar for the gpui `list` in `holder` (a feed too long to lay out at once); a finger scrolls without one |
@@ -21,6 +23,7 @@ An application has parts no intent is: aiddiction's agent steps, its plan, its b
 | `Text::title \| body \| small \| mono(text)` | text in the skin's sizes; `.muted()`, `.tone(t)`, `.strong()`, `.truncate()`, `.clamp(n)`, `.grow()`, `.center()` |
 | `Markdown::new(id, text)` | Markdown that can be selected; `.on_link(f)`, `.on_link_menu(f)` (a right click on a link, with the point: for [`Menu::open_at`](menu.md)), `.selectable(false)`, `.inherit_size()` (the size of what holds it, not the body size), `.extensions(..)` |
 | `Meter::new(fraction)` | a short bar of how far along something is |
+| `gpui_adaptive::chart` | gpui-kit's `BarChart`, `LineChart`, `PieChart`; paint them with `cx.colors().chart` (the series, in order) or the application's own colours. Write what a chart says beside it as well: a finger cannot hover |
 
 | Colours | Pointer | Touch |
 |---|---|---|

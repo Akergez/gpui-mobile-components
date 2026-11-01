@@ -28,8 +28,10 @@
 pub mod ask;
 pub mod banner;
 pub mod busy;
+pub mod chips;
 pub mod choice;
 pub mod code;
+pub mod color_field;
 pub mod colors;
 pub mod command;
 pub mod composer;
@@ -69,8 +71,10 @@ mod touch;
 pub use ask::Ask;
 pub use banner::{Banner, Tone};
 pub use busy::{Busy, Skeleton};
+pub use chips::Chips;
 pub use choice::{Choice, ChoiceEvent, ChoiceOption, ChoiceState};
 pub use code::Code;
+pub use color_field::{ColorField, ColorFieldEvent, ColorFieldState};
 pub use colors::{ActiveColors, Colors};
 pub use command::{Command, CommandButton, CommandRole, Handler};
 pub use composer::{Composer, ComposerEvent, ComposerState, Suggestion};
@@ -82,7 +86,7 @@ pub use empty::Empty;
 pub use env::{Env, InputMode, WidthClass, input_mode, set_input_mode};
 pub use feed::{Feed, Fold, Message};
 pub use field::{FieldEvent, FieldKey, Purpose, TextField, TextFieldState};
-pub use form::{Fields, Form};
+pub use form::{Fields, Form, Labelled};
 pub use frame::AppFrame;
 pub use identity::{Avatar, Count, Presence};
 pub use insets::Insets;
@@ -95,8 +99,8 @@ pub use note::Note;
 pub use notice::Notice;
 pub use palette::{ActivePalette, Palette};
 pub use popup::Popup;
-pub use prim::{Markdown, Meter, Surface, Text};
-pub use records::{Column, ColumnRole, Record, Records};
+pub use prim::{Markdown, Meter, Surface, Text, Tile, TileSize};
+pub use records::{Column, ColumnRole, Record, Records, RecordsScroll};
 pub use scale::{ActiveScale, Scale};
 pub use screen::Screen;
 pub use segments::Segments;
@@ -118,6 +122,14 @@ pub mod markdown {
         InlineElement, InlineRenderContext, MarkdownExtensions, MarkdownNode, MarkdownParseContext,
         MarkdownPlugin, markdown_ast,
     };
+}
+
+/// Charts: gpui-kit's bars, lines and rings, painted with the series of
+/// `cx.colors().chart` or the application's own colours (a category's).
+/// What a chart says should also be written out beside it, for a finger
+/// has no pointer to hover with.
+pub mod chart {
+    pub use gpui_kit::component::chart::{BarChart, LineChart, PieChart};
 }
 
 /// The theme an application lets the person choose: light or dark, the

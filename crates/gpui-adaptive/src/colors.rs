@@ -55,6 +55,9 @@ pub struct Colors {
     pub on_nav: Hsla,
     pub nav_selected: Hsla,
     pub nav_border: Hsla,
+    /// The series of a chart, in order: the first is what a chart of one
+    /// series is drawn in.
+    pub chart: [Hsla; 5],
     /// Whether the colours are a dark scheme.
     pub dark: bool,
     /// The font for text a machine wrote.
@@ -67,6 +70,7 @@ impl Colors {
         let (success, warning, danger, info) = (theme.success, theme.warning, theme.danger, theme.info);
         let mono_font = theme.mono_font_family.clone();
         let (link, focus, dark) = (theme.link, theme.ring, theme.mode.is_dark());
+        let chart = [theme.chart_1, theme.chart_2, theme.chart_3, theme.chart_4, theme.chart_5];
         match input_mode(cx) {
             InputMode::Pointer => Colors {
                 text: theme.foreground,
@@ -92,6 +96,7 @@ impl Colors {
                 on_nav: theme.sidebar_foreground,
                 nav_selected: theme.sidebar_accent,
                 nav_border: theme.sidebar_border,
+                chart,
                 dark,
                 mono_font,
             },
@@ -121,6 +126,7 @@ impl Colors {
                     on_nav: palette.on_surface,
                     nav_selected: palette.secondary_container,
                     nav_border: palette.outline_variant,
+                    chart,
                     dark,
                     mono_font,
                 }
