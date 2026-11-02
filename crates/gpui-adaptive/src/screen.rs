@@ -291,91 +291,37 @@ impl Screen {
         if shown.len() > 2 {
             overflow.splice(0..0, shown.split_off(2));
         }
-        let up = self.up.clone().map(|up| {
-            Button::new("up")
-                .ghost()
-                .large()
-                .icon(IconName::ArrowLeft)
-                .accessibility_label("Back")
-                .on_click(move |_, window, cx| up(window, cx))
-        });
-        let more = (!overflow.is_empty()).then(|| {
-            let (overflow, title) = (overflow.clone(), self.title.clone());
-            Button::new("more")
-                .ghost()
-                .large()
-                .icon(IconName::EllipsisVertical)
-                .accessibility_label("More")
-                .on_click(move |_, window, cx| Sheet::actions(Some(title.clone()), overflow.clone(), window, cx))
-        });
         let large = self.root && self.up.is_none();
         let switcher = self.switcher.take();
-        // Under a root page's large title the switcher has the page's width;
-        // in the bar beside its icons it would not.
-        let (under_title, after_heading) = if large { (switcher.map(crate::Menu::quiet), None) } else { (None, switcher) };
-        let heading = v_flex()
-            .flex_1()
-            .min_w_0()
-            .when(self.up.is_none(), |heading| heading.pl_4())
-            .when(!large, |heading| {
-                heading
-                    .child(div().truncate().text_size(scale.title).child(self.title.clone()))
-                    .children(self.subtitle.clone().map(|subtitle| {
-                        div().truncate().text_size(scale.small).text_color(palette.on_surface_variant).child(subtitle)
-                    }))
-            });
-        let after_heading = after_heading.map(|switcher| div().flex_none().min_w_0().overflow_hidden().child(switcher));
-        // A root page's header is the large title with its actions beside
-        // it, on one centre line in a row as tall as a target: a separate
-        // bar above it would stand empty but for its icons and push the title
-        // down below the screen's top. The subtitle and the switcher follow
-        // on the title's edge.
-        let header: AnyElement = if large {
-            v_flex()
-                .flex_none()
-                .w_full()
-                .pl_4()
-                .pr_1()
-                .pb(scale.space_s)
-                .child(
-                    h_flex()
-                        .h(scale.target)
-                        .gap_1()
-                        .child(
-                            div()
-                                .flex_1()
-                                .min_w_0()
-                                .truncate()
-                                .text_size(scale.title_root)
-                                .child(self.title.clone()),
-                        )
-                        .children(shown.iter().map(|c| c.icon_button(env)))
-                        .children(more),
-                )
-                .children(self.subtitle.clone().map(|subtitle| {
-                    div()
-                        .pr_3()
-                        .truncate()
-                        .text_size(scale.small)
-                        .text_color(palette.on_surface_variant)
-                        .child(subtitle)
-                }))
-                .children(under_title.map(|switcher| h_flex().pr_3().min_w_0().child(switcher)))
-                .into_any_element()
-        } else {
-            h_flex()
-                .flex_none()
-                .w_full()
-                .h(scale.bar)
-                .px_1()
-                .gap_1()
-                .children(up)
-                .child(heading)
-                .children(after_heading)
-                .children(shown.iter().map(|c| c.icon_button(env)))
-                .children(more)
-                .into_any_element()
+        // The header stays put while the content scrolls: a cached part,
+        // drawn again only when what it shows changes.
+        let look = HeaderLook {
+            title: self.title.clone(),
+            subtitle: self.subtitle.clone(),
+            large,
+            up: self.up.is_some(),
+            shown: shown.iter().map(CommandLook::of).collect(),
+            more: !overflow.is_empty(),
+            switcher: switcher.as_ref().map(|menu| CommandLook::of(menu.button())),
+            palette,
+            scale: scale.clone(),
+            input: env.input(),
         };
+        let height = if large {
+            let mut height = scale.target.0 + scale.space_s.0;
+            if self.subtitle.is_some() {
+                height += SUBTITLE_LINE;
+            }
+            if switcher.is_some() {
+                height += scale.space_xl.0;
+            }
+            gpui_kit::rems(height)
+        } else {
+            scale.bar
+        };
+        let handlers = HeaderHandlers { shown, overflow, up: self.up.clone(), switcher, env };
+        let style = gpui_kit::StyleRefinement::default().flex_none().w_full().h(height);
+        let header = crate::cache::part((self.id.clone(), "header"), look, handlers, draw_header, style, window, cx);
         let fab = primary.map(|command| fab(&command, cx));
         let content = self.render_content(env);
         // A desktop window drawn in the touch skin (a preview) still needs its
@@ -452,4 +398,191 @@ impl RenderOnce for Screen {
             InputMode::Touch => self.render_touch(env, window, cx),
         }
     }
+}
+
+/// The line a root page's subtitle takes, in rems: fixed, so that the cached
+/// header's height is known before it is drawn.
+const SUBTITLE_LINE: f32 = 1.25;
+
+/// What a command looks like in the header; see [`crate::cache`].
+#[derive(PartialEq)]
+struct CommandLook {
+    id: ElementId,
+    label: SharedString,
+    disabled: bool,
+    checked: Option<bool>,
+}
+
+impl CommandLook {
+    fn of(command: &Command) -> Self {
+        CommandLook {
+            id: command.id().clone(),
+            label: command.label().clone(),
+            disabled: command.is_disabled(),
+            checked: command.is_checked(),
+        }
+    }
+}
+
+/// What a touch page's header shows.
+#[derive(PartialEq)]
+struct HeaderLook {
+    title: SharedString,
+    subtitle: Option<SharedString>,
+    large: bool,
+    up: bool,
+    shown: Vec<CommandLook>,
+    more: bool,
+    switcher: Option<CommandLook>,
+    palette: crate::palette::Palette,
+    scale: crate::scale::Scale,
+    input: InputMode,
+}
+
+struct HeaderHandlers {
+    shown: Vec<Command>,
+    overflow: Vec<Command>,
+    up: Option<Up>,
+    switcher: Option<crate::Menu>,
+    env: Env,
+}
+
+type HeaderPart = crate::cache::Part<HeaderLook, HeaderHandlers>;
+
+/// What a press in the header does, taken from the latest handlers.
+type Press = Box<dyn FnOnce(&mut Window, &mut App)>;
+
+/// Runs `with` on the header's handlers as of the frame of the press.
+fn latest(
+    header: &gpui_kit::WeakEntity<HeaderPart>,
+    cx: &App,
+    with: impl FnOnce(&HeaderHandlers) -> Option<Press>,
+) -> Option<Press> {
+    header.upgrade().and_then(|header| header.read(cx).handlers().and_then(with))
+}
+
+fn draw_header(
+    look: &HeaderLook,
+    handlers: &HeaderHandlers,
+    window: &mut Window,
+    cx: &mut gpui_kit::Context<HeaderPart>,
+) -> AnyElement {
+    let (palette, scale, env) = (look.palette, &look.scale, handlers.env);
+    let this = cx.entity().downgrade();
+    let up = look.up.then(|| {
+        let this = this.clone();
+        Button::new("up")
+            .ghost()
+            .large()
+            .icon(IconName::ArrowLeft)
+            .accessibility_label("Back")
+            .on_click(move |_, window, cx| {
+                let up = latest(&this, cx, |h| {
+                    h.up.clone().map(|up| Box::new(move |w: &mut Window, cx: &mut App| up(w, cx)) as Box<_>)
+                });
+                if let Some(up) = up {
+                    up(window, cx);
+                }
+            })
+    });
+    let more = look.more.then(|| {
+        let (this, title) = (this.clone(), look.title.clone());
+        Button::new("more")
+            .ghost()
+            .large()
+            .icon(IconName::EllipsisVertical)
+            .accessibility_label("More")
+            .on_click(move |_, window, cx| {
+                let title = title.clone();
+                let open = latest(&this, cx, |h| {
+                    let overflow = h.overflow.clone();
+                    Some(Box::new(move |w: &mut Window, cx: &mut App| Sheet::actions(Some(title), overflow, w, cx)) as Box<_>)
+                });
+                if let Some(open) = open {
+                    open(window, cx);
+                }
+            })
+    });
+    let shown = handlers.shown.iter().map(|command| {
+        let (this, id) = (this.clone(), command.id().clone());
+        command.icon_button(env).on_click(move |_, window, cx| {
+            let run = latest(&this, cx, |h| {
+                h.shown.iter().find(|c| *c.id() == id).cloned().map(|c| {
+                    Box::new(move |w: &mut Window, cx: &mut App| c.run(w, cx)) as Box<_>
+                })
+            });
+            if let Some(run) = run {
+                run(window, cx);
+            }
+        })
+    });
+    let switcher = handlers.switcher.as_ref().filter(|_| look.large).map(|menu| {
+        let this = this.clone();
+        menu.quiet_line(
+            move |window, cx| {
+                let open = latest(&this, cx, |h| {
+                    h.switcher.as_ref().map(|menu| {
+                        let menu = menu.clone();
+                        Box::new(move |w: &mut Window, cx: &mut App| menu.open_sheet(w, cx)) as Box<_>
+                    })
+                });
+                if let Some(open) = open {
+                    open(window, cx);
+                }
+            },
+            window,
+            cx,
+        )
+    });
+    // A root page's header is the large title with its actions beside it,
+    // on one centre line in a row as tall as a target: a separate bar above
+    // it would stand empty but for its icons and push the title down below
+    // the screen's top. The subtitle and the switcher follow on the title's
+    // edge.
+    if look.large {
+        return v_flex()
+            .size_full()
+            .pl_4()
+            .pr_1()
+            .pb(scale.space_s)
+            .child(
+                h_flex()
+                    .h(scale.target)
+                    .gap_1()
+                    .child(div().flex_1().min_w_0().truncate().text_size(scale.title_root).child(look.title.clone()))
+                    .children(shown)
+                    .children(more),
+            )
+            .children(look.subtitle.clone().map(|subtitle| {
+                div()
+                    .h(gpui_kit::rems(SUBTITLE_LINE))
+                    .line_height(gpui_kit::rems(SUBTITLE_LINE))
+                    .pr_3()
+                    .truncate()
+                    .text_size(scale.small)
+                    .text_color(palette.on_surface_variant)
+                    .child(subtitle)
+            }))
+            .children(switcher.map(|switcher| h_flex().pr_3().min_w_0().child(switcher)))
+            .into_any_element();
+    }
+    let heading = v_flex()
+        .flex_1()
+        .min_w_0()
+        .when(!look.up, |heading| heading.pl_4())
+        .child(div().truncate().text_size(scale.title).child(look.title.clone()))
+        .children(look.subtitle.clone().map(|subtitle| {
+            div().truncate().text_size(scale.small).text_color(palette.on_surface_variant).child(subtitle)
+        }));
+    h_flex()
+        .size_full()
+        .px_1()
+        .gap_1()
+        .children(up)
+        .child(heading)
+        // In the app bar the switcher is the menu's own button.
+        .children(handlers.switcher.clone().map(|menu| div().flex_none().min_w_0().overflow_hidden().child(menu)))
+        .children(shown)
+        .children(more)
+        .into_any_element()
 }

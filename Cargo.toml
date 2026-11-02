@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/gpui-adaptive", "crates/gallery"]
 
 [workspace.package]
-version = "0.4.3"
+version = "0.4.4"
 edition = "2024"
 rust-version = "1.95"
 license = "GPL-3.0"
@@ -16,7 +16,7 @@ gpui-kit = "0.7.0"
 # The same source as theirs (a branch, not a rev), or Cargo would build it twice.
 gpui-adaptive-colors = { git = "https://github.com/Akergez/gpui-adaptive-colors", branch = "main" }
 # What a phone needs beyond gpui-mobile, at the tag aiddiction and matterfast use.
-gpui-android-glue = { git = "https://github.com/Akergez/gpui-android-glue", tag = "v0.4.2" }
+gpui-android-glue = { git = "https://github.com/Akergez/gpui-android-glue", tag = "v0.4.3" }
 
 [profile.dev]
 debug = "line-tables-only"

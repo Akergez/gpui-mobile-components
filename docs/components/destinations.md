@@ -35,6 +35,7 @@ Destinations::new("sections", selected_key)
 - `count(n, urgent)`: `urgent` (danger colour) only for what waits on the person: mentions, a question from an agent. Other counts use the primary colour.
 - The key is the section's stable name. Each destination's element id is its key, so tests and scenarios can press `"settings"`.
 - On a compact window the page's [Screen](screen.md) draws the primary command as its FAB; give it to the root page's screen as well.
+- The navigation bar along the bottom is a cached view: GPUI reuses it from the previous frame while a page scrolls above it, and draws it again only when a label, a count, the selection or the colours change. A press always reaches the latest `on_select`.
 
 | aiddiction's desktop: `prefer_rail` + `header`, pages in the title bar |
 |---|

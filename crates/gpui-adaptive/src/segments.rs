@@ -15,7 +15,7 @@ use std::rc::Rc;
 use gpui_kit::base::TestSupportExt as _;
 use gpui_kit::component::{ActiveTheme, Icon, Sizable, h_flex};
 use gpui_kit::prelude::*;
-use gpui_kit::{App, ElementId, FontWeight, RenderOnce, SharedString, Window, div, rems};
+use gpui_kit::{AnyElement, App, ElementId, FontWeight, RenderOnce, SharedString, Window, div, rems};
 
 use crate::env::{Env, InputMode};
 use crate::palette::ActivePalette;
@@ -82,6 +82,22 @@ impl RenderOnce for Segments {
         let theme = cx.theme();
         let touch = env.input() == InputMode::Touch;
         let fill = self.fill;
+        // A switch across its page stays put while the page scrolls: a
+        // cached part, its height a control's and its width the page's.
+        if touch && fill {
+            let look = TrackLook {
+                segments: self.segments.iter().map(|(key, label, _)| (key.clone(), label.clone())).collect(),
+                selected: self.selected.clone(),
+                palette,
+                scale: scale.clone(),
+            };
+            let handlers = TrackHandlers {
+                icons: self.segments.iter().map(|(_, _, icon)| icon.clone()).collect(),
+                on_change: self.on_change.clone(),
+            };
+            let style = gpui_kit::StyleRefinement::default().w_full().h(scale.control);
+            return crate::cache::part((self.id.clone(), "track"), look, handlers, draw_track, style, window, cx);
+        }
         let segments = self.segments.into_iter().map(|(key, label, icon)| {
             let on = key == self.selected;
             let on_change = self.on_change.clone();
@@ -144,4 +160,69 @@ impl RenderOnce for Segments {
                 .into_any_element()
         }
     }
+}
+
+/// What a touch switch across its page shows; see [`crate::cache`].
+#[derive(PartialEq)]
+struct TrackLook {
+    segments: Vec<(SharedString, SharedString)>,
+    selected: SharedString,
+    palette: crate::palette::Palette,
+    scale: crate::scale::Scale,
+}
+
+struct TrackHandlers {
+    /// Told apart by their segment's key, not compared.
+    icons: Vec<Option<Icon>>,
+    on_change: Option<OnChange>,
+}
+
+fn draw_track(
+    look: &TrackLook,
+    handlers: &TrackHandlers,
+    _: &mut Window,
+    cx: &mut gpui_kit::Context<crate::cache::Part<TrackLook, TrackHandlers>>,
+) -> AnyElement {
+    let (palette, scale) = (look.palette, &look.scale);
+    let track = cx.entity().downgrade();
+    h_flex()
+        .size_full()
+        .p(rems(0.25))
+        .gap(rems(0.25))
+        .rounded_full()
+        .bg(palette.surface_high)
+        .children(look.segments.iter().zip(&handlers.icons).map(|((key, label), icon)| {
+            let on = *key == look.selected;
+            let (track, chosen) = (track.clone(), key.clone());
+            h_flex()
+                .id(ElementId::Name(key.clone()))
+                .flex_1()
+                .h_full()
+                .px_4()
+                .justify_center()
+                .gap_1p5()
+                .cursor_pointer()
+                .rounded_full()
+                .text_size(scale.small)
+                .font_weight(FontWeight::MEDIUM)
+                .when(on, |s| s.bg(palette.secondary_container).text_color(palette.on_secondary_container))
+                .when(!on, |s| s.text_color(palette.on_surface_variant))
+                .children(icon.clone().map(|icon| icon.small()))
+                .child(label.clone())
+                // The handler of the frame of the press.
+                .on_click(move |_, window, cx| {
+                    if on {
+                        return;
+                    }
+                    let on_change = track
+                        .upgrade()
+                        .and_then(|track| track.read(cx).handlers().and_then(|h| h.on_change.clone()));
+                    if let Some(on_change) = on_change {
+                        on_change(&chosen, window, cx);
+                    }
+                })
+                .test_support()
+                .into_any_element()
+        }))
+        .into_any_element()
 }

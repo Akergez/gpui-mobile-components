@@ -20,7 +20,7 @@ use std::rc::Rc;
 use gpui_kit::base::TestSupportExt as _;
 use gpui_kit::component::{ActiveTheme, Icon, Sizable, h_flex, v_flex};
 use gpui_kit::prelude::*;
-use gpui_kit::{AnyElement, App, ElementId, FontWeight, RenderOnce, SharedString, Window, div, rems};
+use gpui_kit::{AnyElement, App, ElementId, FontWeight, RenderOnce, SharedString, StyleRefinement, Window, div, rems};
 
 use crate::command::Command;
 use crate::env::{Env, InputMode, WidthClass};
@@ -157,68 +157,36 @@ impl Destinations {
         }
     }
 
-    fn render_bar(&self, env: Env, insets: Insets, rem: gpui_kit::Pixels, cx: &App) -> AnyElement {
+    /// The navigation bar along the bottom: a cached part, the same from
+    /// frame to frame while a page scrolls above it.
+    fn render_bar(&self, env: Env, insets: Insets, window: &mut Window, cx: &mut App) -> AnyElement {
         let palette = cx.palette();
         let scale = cx.scale();
         let theme = cx.theme();
-        let (bar_bg, border) = match env.input() {
+        let (background, border) = match env.input() {
             InputMode::Touch => (palette.surface_container, palette.surface_container),
             InputMode::Pointer => (theme.sidebar, theme.sidebar_border),
         };
-        h_flex()
-            .flex_none()
-            .w_full()
-            .h(scale.navigation_bar.to_pixels(rem) + insets.bars)
-            .pb(insets.bars)
-            .bg(bar_bg)
-            .border_t_1()
-            .border_color(border)
-            .children(self.destinations.iter().map(|destination| {
-                let selected = destination.key == self.selected;
-                let (pill_bg, pill_fg) = if selected {
-                    (palette.secondary_container, palette.on_secondary_container)
-                } else {
-                    (gpui_kit::transparent_black(), palette.on_surface_variant)
-                };
-                v_flex()
-                    .id(ElementId::Name(destination.key.clone()))
-                    .flex_1()
-                    .h_full()
-                    .items_center()
-                    .justify_center()
-                    .gap_1()
-                    .cursor_pointer()
-                    .child(
-                        div()
-                            .relative()
-                            .w(rems(4.))
-                            .h(rems(2.))
-                            .rounded_full()
-                            .flex()
-                            .items_center()
-                            .justify_center()
-                            .bg(pill_bg)
-                            .text_color(pill_fg)
-                            .child(destination.icon.clone())
-                            .child(
-                                div()
-                                    .absolute()
-                                    .top(rems(-0.25))
-                                    .left(rems(2.25))
-                                    .child(Count::new(destination.count).urgent(destination.urgent)),
-                            ),
-                    )
-                    .child(
-                        div()
-                            .text_size(rems(0.75))
-                            .when(selected, |label| label.font_weight(FontWeight::BOLD).text_color(palette.on_surface))
-                            .when(!selected, |label| label.text_color(palette.on_surface_variant))
-                            .child(destination.label.clone()),
-                    )
-                    .on_click(self.select(destination.key.clone()))
-                .test_support()
-            }))
-            .into_any_element()
+        let height = scale.navigation_bar.to_pixels(window.rem_size()) + insets.bars;
+        let look = BarLook {
+            items: self
+                .destinations
+                .iter()
+                .map(|d| (d.key.clone(), d.label.clone(), d.count, d.urgent))
+                .collect(),
+            selected: self.selected.clone(),
+            height,
+            bars: insets.bars,
+            background,
+            border,
+            palette,
+        };
+        let handlers = BarHandlers {
+            icons: self.destinations.iter().map(|d| d.icon.clone()).collect(),
+            on_select: self.on_select.clone(),
+        };
+        let style = StyleRefinement::default().flex_none().w_full().h(height);
+        crate::cache::part((self.id.clone(), "bar"), look, handlers, draw_bar, style, window, cx)
     }
 
     fn render_rail(&mut self, env: Env, labels: bool, cx: &App) -> AnyElement {
@@ -348,7 +316,7 @@ impl RenderOnce for Destinations {
         let content = self.content.take().unwrap_or_else(|| div().into_any_element());
         match env.width() {
             WidthClass::Compact => {
-                let bar = self.bar_visible.then(|| self.render_bar(env, insets, window.rem_size(), cx));
+                let bar = self.bar_visible.then(|| self.render_bar(env, insets, window, cx));
                 // With the bar, the bar keeps the system's room and goes under
                 // the keyboard; without it the page keeps the room itself.
                 let below = if self.bar_visible { insets.keyboard_over_bars() } else { insets.typing() };
@@ -380,4 +348,95 @@ impl RenderOnce for Destinations {
             }
         }
     }
+}
+
+/// What the navigation bar shows; see [`crate::cache`].
+#[derive(PartialEq)]
+struct BarLook {
+    /// Each destination's key, label, count and urgency.
+    items: Vec<(SharedString, SharedString, usize, bool)>,
+    selected: SharedString,
+    height: gpui_kit::Pixels,
+    bars: gpui_kit::Pixels,
+    background: gpui_kit::Hsla,
+    border: gpui_kit::Hsla,
+    palette: crate::palette::Palette,
+}
+
+struct BarHandlers {
+    /// Told apart by their destination's key, not compared.
+    icons: Vec<Icon>,
+    on_select: Option<OnSelect>,
+}
+
+fn draw_bar(
+    look: &BarLook,
+    handlers: &BarHandlers,
+    _: &mut Window,
+    cx: &mut gpui_kit::Context<crate::cache::Part<BarLook, BarHandlers>>,
+) -> AnyElement {
+    let palette = look.palette;
+    let bar = cx.entity().downgrade();
+    h_flex()
+        .size_full()
+        .pb(look.bars)
+        .bg(look.background)
+        .border_t_1()
+        .border_color(look.border)
+        .children(look.items.iter().zip(&handlers.icons).map(|((key, label, count, urgent), icon)| {
+            let selected = *key == look.selected;
+            let (pill_bg, pill_fg) = if selected {
+                (palette.secondary_container, palette.on_secondary_container)
+            } else {
+                (gpui_kit::transparent_black(), palette.on_surface_variant)
+            };
+            let (bar, chosen) = (bar.clone(), key.clone());
+            v_flex()
+                .id(ElementId::Name(key.clone()))
+                .flex_1()
+                .h_full()
+                .items_center()
+                .justify_center()
+                .gap_1()
+                .cursor_pointer()
+                .child(
+                    div()
+                        .relative()
+                        .w(rems(4.))
+                        .h(rems(2.))
+                        .rounded_full()
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .bg(pill_bg)
+                        .text_color(pill_fg)
+                        .child(icon.clone())
+                        .child(
+                            div()
+                                .absolute()
+                                .top(rems(-0.25))
+                                .left(rems(2.25))
+                                .child(Count::new(*count).urgent(*urgent)),
+                        ),
+                )
+                .child(
+                    div()
+                        .text_size(rems(0.75))
+                        .when(selected, |label| label.font_weight(FontWeight::BOLD).text_color(palette.on_surface))
+                        .when(!selected, |label| label.text_color(palette.on_surface_variant))
+                        .child(label.clone()),
+                )
+                // The handler of the frame of the press, not of the frame
+                // the bar was drawn in.
+                .on_click(move |_, window, cx| {
+                    let on_select = bar
+                        .upgrade()
+                        .and_then(|bar| bar.read(cx).handlers().and_then(|h| h.on_select.clone()));
+                    if let Some(on_select) = on_select {
+                        on_select(&chosen, window, cx);
+                    }
+                })
+                .test_support()
+        }))
+        .into_any_element()
 }

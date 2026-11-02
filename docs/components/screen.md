@@ -39,6 +39,7 @@ Screen::new("project", project.name())
 - In the title bar the bar is laid over the toolkit's title bar rather than inside it, so that a long subtitle is cut instead of pushing the window's controls out. A column beside such a page has its bar at the title bar's height, in its colours: one strip across the window.
 - `.scrolls(false)` is for content that scrolls in its own way (a feed, a virtual list, a page with a composer at the bottom). The content then fills the page.
 - Element ids: the primary command's id is its own (`"new-task"`), and the bar's buttons are `"up"` and `"more"`.
+- On a finger the header is a cached view: reused from the previous frame while the content scrolls, drawn again only when the title, the subtitle, the commands (their ids, labels, disabled and checked states), the switcher's label or the colours change. A press always runs the latest command. A root page's subtitle takes one line of 1.25 rem.
 
 ## Rules
 

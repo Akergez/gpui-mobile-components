@@ -25,6 +25,8 @@ The value is controlled: the owner keeps the selected key. `on_change` is not ca
 
 On a finger the group takes the width it is given and divides it among its segments: a switch that spans its page or card. `.fill(false)` makes it hug its segments instead, for a row where it stands beside something else (a card's title): a full width would leave the rest of the row nothing, and its text would break a letter to a line.
 
+On a finger a group that fills its width is a cached view, reused while its page scrolls (when it is not inside the scrolling content) and drawn again when a label, the choice or the colours change; `on_change` is always the latest.
+
 ## When not to use
 
 - More than four options, or options that are not all visible at once: use [Choice](choice.md).

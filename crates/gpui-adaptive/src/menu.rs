@@ -34,18 +34,17 @@ use crate::scale::ActiveScale;
 use crate::sheet::Sheet;
 
 /// Commands offered from one button.
-#[derive(IntoElement)]
+#[derive(Clone, IntoElement)]
 pub struct Menu {
     button: Command,
     title: Option<SharedString>,
     groups: Vec<Vec<Command>>,
     choice: bool,
-    quiet: bool,
 }
 
 impl Menu {
     pub fn new(button: Command) -> Self {
-        Menu { button, title: None, groups: vec![Vec::new()], choice: false, quiet: false }
+        Menu { button, title: None, groups: vec![Vec::new()], choice: false }
     }
 
     /// The menu is a choice, its button showing what is chosen: outlined,
@@ -53,14 +52,6 @@ impl Menu {
     /// as text. An integration's select, a form's field of a few options.
     pub fn choice(mut self) -> Self {
         self.choice = true;
-        self
-    }
-
-    /// A choice drawn as a line of text rather than as a button: its icon,
-    /// what is chosen and a caret, no outline. A root page's switcher under
-    /// its large title, where an outlined button would be a second heading.
-    pub(crate) fn quiet(mut self) -> Self {
-        self.quiet = true;
         self
     }
 
@@ -128,6 +119,29 @@ impl Menu {
     fn all(&self) -> Vec<Command> {
         self.groups.iter().flatten().cloned().collect()
     }
+
+    /// Opens the commands as the touch skin does: a sheet of rows.
+    pub(crate) fn open_sheet(&self, window: &mut Window, cx: &mut App) {
+        Sheet::actions(self.title.clone(), self.all(), window, cx);
+    }
+
+    /// The button as a line of text rather than as a button: its icon, what
+    /// is chosen and a caret, no outline; `on_press` answers it. A root
+    /// page's switcher under its large title, where an outlined button would
+    /// be a second heading.
+    pub(crate) fn quiet_line(
+        &self,
+        on_press: impl Fn(&mut Window, &mut App) + 'static,
+        window: &mut Window,
+        cx: &mut App,
+    ) -> AnyElement {
+        quiet(&self.button, on_press, window, cx)
+    }
+
+    /// The button's id and label: what a quiet line shows.
+    pub(crate) fn button(&self) -> &Command {
+        &self.button
+    }
 }
 
 impl RenderOnce for Menu {
@@ -145,9 +159,6 @@ impl RenderOnce for Menu {
                 .button
                 .clone()
                 .on_trigger(move |window, cx| Sheet::actions(title.clone(), commands.clone(), window, cx));
-            if self.quiet {
-                return quiet(&opens, window, cx);
-            }
             return drawn(&opens).into_any_element();
         }
         let groups = self.groups;
@@ -170,10 +181,14 @@ impl RenderOnce for Menu {
 /// the secondary text colour, a caret after them, as tall as two lines of
 /// small text: the line under a title, not a control beside it. Its text
 /// starts at its own edge, on the spine of the title above it.
-fn quiet(button: &Command, window: &mut Window, cx: &mut App) -> AnyElement {
+fn quiet(
+    button: &Command,
+    on_press: impl Fn(&mut Window, &mut App) + 'static,
+    window: &mut Window,
+    cx: &mut App,
+) -> AnyElement {
     let scale = cx.scale();
     let palette = cx.palette();
-    let pressed = button.clone();
     crate::prim::key_pressable(button.id().clone(), window, cx)
         .flex()
         .flex_row()
@@ -187,7 +202,7 @@ fn quiet(button: &Command, window: &mut Window, cx: &mut App) -> AnyElement {
         .children(button.icon_ref().cloned().map(|icon| icon.small().flex_none()))
         .child(div().truncate().min_w_0().child(button.label().clone()))
         .child(Icon::new(IconName::ChevronDown).xsmall().flex_none())
-        .on_click(move |_, window, cx| pressed.run(window, cx))
+        .on_click(move |_, window, cx| on_press(window, cx))
         .test_support()
         .into_any_element()
 }

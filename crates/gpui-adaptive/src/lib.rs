@@ -57,6 +57,7 @@ pub mod note;
 pub mod notice;
 pub mod palette;
 pub mod popup;
+mod cache;
 pub mod prim;
 pub mod records;
 pub mod scale;
