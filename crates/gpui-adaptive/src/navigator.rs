@@ -87,6 +87,9 @@ pub trait Route: Clone + PartialEq + 'static {
 enum Change {
     Push,
     Pop,
+    /// Back by a gesture that has already put the page in place: it comes
+    /// in as it is, not a second time.
+    Revealed,
     Replace,
 }
 
@@ -103,13 +106,16 @@ pub struct NavigatorState<R: Route> {
     generation: usize,
     change: Change,
     back: Option<gpui_android_glue::back::Guard>,
+    /// Whether the last frame showed a gesture of back: the back it ends in
+    /// has nothing left to show.
+    gesture_shown: bool,
 }
 
 impl<R: Route> EventEmitter<NavigatorEvent> for NavigatorState<R> {}
 
 impl<R: Route> NavigatorState<R> {
     pub fn new(root: R) -> Self {
-        NavigatorState { stack: vec![root], generation: 0, change: Change::Replace, back: None }
+        NavigatorState { stack: vec![root], generation: 0, change: Change::Replace, back: None, gesture_shown: false }
     }
 
     /// The page on top.
@@ -217,7 +223,7 @@ impl<R: Route> NavigatorState<R> {
         } else {
             return false;
         }
-        self.changed(Change::Pop, cx);
+        self.changed(if self.gesture_shown { Change::Revealed } else { Change::Pop }, cx);
         true
     }
 
@@ -394,7 +400,12 @@ impl<R: Route> RenderOnce for Navigator<R> {
         let stacked = columns.len() == 1 && floating.is_none();
         let (generation, change) = (state.generation, state.change);
         let back_target = state.back_target();
-        self.state.update(cx, |state, cx| state.sync_back(stacked, cx));
+        let gesture = self.state.update(cx, |navigator, cx| {
+            navigator.sync_back(stacked, cx);
+            let gesture = navigator.back.as_ref().and_then(|guard| guard.gesture(window, cx));
+            navigator.gesture_shown = gesture.is_some();
+            gesture
+        });
 
         let weak = self.state.downgrade();
         let up: Handler = Rc::new(move |_, cx| {
@@ -416,9 +427,6 @@ impl<R: Route> RenderOnce for Navigator<R> {
             cx,
         );
         let page = transition(self.id.clone(), generation, change, env, page, cx);
-        let gesture = self.state.update(cx, |navigator, cx| {
-            navigator.back.as_ref().and_then(|guard| guard.gesture(window, cx))
-        });
         // What back goes to is drawn only while a gesture shows it.
         let under = gesture
             .and(back_target)
@@ -520,14 +528,14 @@ impl<R: Route> Navigator<R> {
 /// short fade on a pointer. Keyed by the change, so it plays once per change.
 fn transition(id: ElementId, generation: usize, change: Change, env: Env, page: AnyElement, cx: &App) -> AnyElement {
     let duration: Duration = cx.scale().page;
-    if generation == 0 || change == Change::Replace || duration.is_zero() {
+    if generation == 0 || matches!(change, Change::Replace | Change::Revealed) || duration.is_zero() {
         return page;
     }
     let slide = env.input() == InputMode::Touch;
     let from = match change {
         Change::Push => 0.12,
         Change::Pop => -0.06,
-        Change::Replace => 0.,
+        Change::Revealed | Change::Replace => 0.,
     };
     div()
         .relative()
@@ -644,6 +652,21 @@ mod tests {
             assert!(navigator.has_back());
             assert!(navigator.back(cx));
             assert_eq!(navigator.stack(), &[Mail::Inbox]);
+        });
+    }
+
+    #[gpui_kit::test]
+    fn back_at_the_end_of_a_gesture_does_not_bring_the_page_in_again(cx: &mut gpui_kit::TestAppContext) {
+        let navigator = cx.new(|_| NavigatorState::new(Mail::Inbox));
+        navigator.update(cx, |navigator, cx| {
+            navigator.push(Mail::Message(1), cx);
+            navigator.gesture_shown = true;
+            assert!(navigator.back(cx));
+            assert_eq!(navigator.change, Change::Revealed);
+            navigator.push(Mail::Message(2), cx);
+            navigator.gesture_shown = false;
+            assert!(navigator.back(cx));
+            assert_eq!(navigator.change, Change::Pop);
         });
     }
 
