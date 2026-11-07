@@ -1023,6 +1023,46 @@ fn records_that_fill_the_page_lay_out_only_the_rows_in_view_in_both_skins(cx: &m
     }
 }
 
+// A record's pills (its tags) ride on a line it already has: a row with
+// them is as tall as a row without, so a list of one height stays one.
+
+struct Tagged;
+
+impl Render for Tagged {
+    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+        use gpui_adaptive::{Column, ColumnRole, Pill, Record, Records};
+        let color = gpui_kit::hsla(0.9, 0.6, 0.5, 1.);
+        AppFrame::new("Tagged").child(
+            Screen::new("tagged", "Tagged").root(true).content(
+                Records::new("tagged-records")
+                    .column(Column::new("name", "Name").grow(3.).role(ColumnRole::Title))
+                    .column(Column::new("date", "Date").grow(2.).role(ColumnRole::Subtitle))
+                    .column(Column::new("amount", "Amount").grow(2.).numeric().role(ColumnRole::Trailing))
+                    .records([
+                        Record::new("plain", ["Food", "2026-10-01", "5.00"]).tile(IconName::Star, color),
+                        Record::new("tagged", ["Food", "2026-10-02", "7.00"])
+                            .tile(IconName::Star, color)
+                            .pills([Pill::new("Trip", color).icon(IconName::Map), Pill::new("Work", color)]),
+                    ]),
+            ),
+        )
+    }
+}
+
+#[gpui_kit::test]
+fn a_record_with_pills_is_as_tall_as_one_without_in_both_skins(cx: &mut TestAppContext) {
+    for (input, window_size) in [(InputMode::Pointer, DESKTOP), (InputMode::Touch, PHONE)] {
+        setup(input, cx);
+        let (handle, _) = open(window_size, cx, |_, _| Tagged);
+        cx.update_window(handle, |_, window, cx| {
+            window.render_frame(cx);
+            let (plain, tagged) = (window.find("plain").bounds(), window.find("tagged").bounds());
+            assert_eq!(plain.size.height, tagged.size.height, "{input:?}");
+        })
+        .unwrap();
+    }
+}
+
 // A date field holds the date typed, and none while what is typed is not one.
 
 struct Day {

@@ -22,6 +22,7 @@ shares.iter().fold(Chips::new("bars").all("All"), |chips, share| {
 
 - Controlled: the owner keeps which chips are on and is told which was pressed.
 - `.dot(color)` gives the chip just added a dot of its thing's colour. While some chips are on, the dots of the others fade, so the chosen ones stand out on the chart too.
+- `.icon(icon, color)` gives it its thing's icon in that colour instead: a tag, drawn as it is on a record. On a finger a chip that is on shows the check in its place.
 - The row wraps onto more rows as needed.
 - Each chip's element id is `(id, key)`, and "All"'s is `(id, "all")`.
 
@@ -32,7 +33,7 @@ shares.iter().fold(Chips::new("bars").all("All"), |chips, share| {
 
 ## Used by
 
-money-manager's charts: the categories the monthly bars and the running total are each of.
+money-manager's charts: the categories the monthly bars and the running total are each of; its record form: the tags a record carries, any number of them.
 
 ## Tests
 

@@ -15,6 +15,7 @@ An application has parts no intent is: aiddiction's agent steps, its plan, its b
 | `pressable(id, cx)` | a row that can be pressed: hover and press colours on a pointer, the pressed layer on a finger. `testable(el)` finishes it so a UI test finds it by its id |
 | `key_pressable(id, window, cx)` | a pressable the keyboard reaches too: Tab stops on it, Enter or Space presses it, a ring shows the focus. For the cells of a grid to choose from (a form's categories, a category's icons) |
 | `Tile::new(icon, color)` | an icon on a 16% tint of its colour: what identifies a thing of the person's own making (a category). `TileSize::Small` beside a name in a table, `Leading` before a list row's title (small on a pointer, medium on a finger), `Medium` in a card or a grid, `Large` atop an editor |
+| `Pill::new(label, color).icon(icon)` | a small label of a thing of the person's own making: its icon in its colour on a 14% tint, the label in the text colour; 1.125 rem high on a pointer, 1.25 on a finger. Read beside other text, several to a line: a record's tags ([Records](records.md), [ListRow](list.md)`::pills`) |
 | `scroll_y(id, cx, content)`, `scroll_x(id, cx, row)` | a scroll area, locked to its axis for a finger |
 | `Scrolls`: `.scrolls_y()`, `.scrolls_x()` | scrolling along one axis on an element laid out by the application (a list of bounded height in a popup, a strip of tabs), the axis locked |
 | `list_scrollbar(holder, &list_state, cx)` | a scrollbar for the gpui `list` in `holder` (a feed too long to lay out at once); a finger scrolls without one |

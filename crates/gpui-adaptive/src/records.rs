@@ -12,7 +12,7 @@
 //!
 //! The rows are the owner's data, each with a stable id; the cells are
 //! strings it has already formatted. A record may carry a [`Tile`], drawn
-//! before its title in either form. [`Records::fill`] lays out only the rows
+//! before its title in either form, and [`Pill`]s (its tags). [`Records::fill`] lays out only the rows
 //! in view, in a scroll area of its own: a ledger of years of records.
 
 use std::rc::Rc;
@@ -25,7 +25,7 @@ use gpui_kit::{AnyElement, App, ElementId, FontWeight, Hsla, Rems, RenderOnce, S
 
 use crate::env::{Env, InputMode, WidthClass};
 use crate::list::ListRow;
-use crate::prim::{Tile, TileSize};
+use crate::prim::{Pill, Tile, TileSize};
 use crate::scale::ActiveScale;
 use crate::touch;
 
@@ -125,17 +125,25 @@ pub struct Record {
     id: ElementId,
     cells: Vec<SharedString>,
     tile: Option<(Icon, Hsla)>,
+    pills: Vec<Pill>,
 }
 
 impl Record {
     pub fn new(id: impl Into<ElementId>, cells: impl IntoIterator<Item = impl Into<SharedString>>) -> Self {
-        Record { id: id.into(), cells: cells.into_iter().map(Into::into).collect(), tile: None }
+        Record { id: id.into(), cells: cells.into_iter().map(Into::into).collect(), tile: None, pills: Vec::new() }
     }
 
     /// What the record is of, as a [`Tile`] before its title: a category's
     /// icon in its colour.
     pub fn tile(mut self, icon: impl Into<Icon>, color: Hsla) -> Self {
         self.tile = Some((icon.into(), color));
+        self
+    }
+
+    /// What the record is tagged with, as [`Pill`]s: after the subtitle in
+    /// a list row, after the title in a table's row. Neither grows for them.
+    pub fn pills(mut self, pills: impl IntoIterator<Item = Pill>) -> Self {
+        self.pills.extend(pills);
         self
     }
 
@@ -249,6 +257,7 @@ impl Rows {
         if let Some(subtitle) = self.cell(record, ColumnRole::Subtitle) {
             row = row.subtitle(subtitle);
         }
+        row = row.pills(record.pills.iter().cloned());
         if let Some(trailing) = self.cell(record, ColumnRole::Trailing) {
             row = row.trailing(div().font_weight(FontWeight::SEMIBOLD).child(trailing));
         }
@@ -281,12 +290,15 @@ impl Rows {
                     .then(|| record.tile.clone())
                     .flatten()
                     .map(|(icon, color)| Tile::new(icon, color).size(TileSize::Small));
+                let pills = if column.role == ColumnRole::Title { record.pills.clone() } else { Vec::new() };
                 column
                     .sized(h_flex().gap_2())
                     .when(column.numeric, |cell| cell.justify_end().font_weight(FontWeight::MEDIUM))
                     .when(column.muted, |cell| cell.text_color(muted))
+                    .when(!pills.is_empty(), |cell| cell.overflow_hidden())
                     .children(tile)
                     .child(div().min_w_0().truncate().child(cell.clone()))
+                    .children(pills)
             }))
             .when_some(on_activate, |row, on_activate| row.on_click(move |_, window, cx| on_activate(&id, window, cx)))
             .test_support()

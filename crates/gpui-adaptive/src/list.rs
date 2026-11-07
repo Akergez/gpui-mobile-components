@@ -50,6 +50,7 @@ pub struct ListRow {
     leading: Option<AnyElement>,
     title: SharedString,
     subtitle: Option<SharedString>,
+    pills: Vec<crate::prim::Pill>,
     supporting: Option<SharedString>,
     supporting_tone: Option<Tone>,
     trailing: Option<AnyElement>,
@@ -69,6 +70,7 @@ impl ListRow {
             leading: None,
             title: title.into(),
             subtitle: None,
+            pills: Vec::new(),
             supporting: None,
             supporting_tone: None,
             trailing: None,
@@ -90,6 +92,14 @@ impl ListRow {
 
     pub fn subtitle(mut self, subtitle: impl Into<SharedString>) -> Self {
         self.subtitle = Some(subtitle.into());
+        self
+    }
+
+    /// [`crate::Pill`]s after the subtitle, on its line: the tags of a
+    /// record. What does not fit is cut off at the row's end; the row does
+    /// not grow for them.
+    pub fn pills(mut self, pills: impl IntoIterator<Item = crate::prim::Pill>) -> Self {
+        self.pills.extend(pills);
         self
     }
 
@@ -163,7 +173,7 @@ impl ListRow {
 }
 
 impl RenderOnce for ListRow {
-    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
+    fn render(mut self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let env = Env::of(window, cx);
         let scale = cx.scale();
         let palette = cx.palette();
@@ -172,6 +182,10 @@ impl RenderOnce for ListRow {
         let has_body = self.body.is_some();
         // Over two lines the row's parts line up at its top.
         let tall = has_body || self.supporting.is_some();
+        let pills = std::mem::take(&mut self.pills);
+        if self.subtitle.is_none() && !pills.is_empty() {
+            self.subtitle = Some(SharedString::default());
+        }
         let height = match (&self.subtitle, &self.supporting) {
             (_, Some(_)) => rems(scale.row_two_line.0 + if touch { 1.25 } else { 1. }),
             (Some(_), None) => scale.row_two_line,
@@ -192,7 +206,16 @@ impl RenderOnce for ListRow {
             .min_w_0()
             .child(title)
             .children(self.subtitle.map(|subtitle| {
-                div().truncate().text_size(scale.small).text_color(muted_fg).child(subtitle)
+                let subtitle = div().truncate().text_size(scale.small).text_color(muted_fg).child(subtitle);
+                if pills.is_empty() {
+                    return subtitle;
+                }
+                h_flex()
+                    .min_w_0()
+                    .gap_1()
+                    .overflow_hidden()
+                    .child(subtitle.flex_none().max_w(gpui_kit::relative(0.6)))
+                    .children(pills)
             }))
             .children(self.supporting.map(|supporting| {
                 let tone = self.supporting_tone;

@@ -11,7 +11,7 @@
 //! - [`scroll_y`], [`scroll_x`]: a scroll area locked to its axis for a finger;
 //!   [`Scrolls`] for the application's own scrolling element;
 //! - [`tooltip`], [`spinner`], [`rem_size`];
-//! - [`Text`], [`Markdown`], [`Meter`], [`Tile`].
+//! - [`Text`], [`Markdown`], [`Meter`], [`Tile`], [`Pill`].
 
 use std::sync::Arc;
 
@@ -456,5 +456,54 @@ impl RenderOnce for Tile {
             TileSize::Medium => tile.size(rems(2.5)).rounded(scale.radius_container).child(self.icon),
             TileSize::Large => tile.size(rems(3.)).rounded(rems(scale.radius_container.0 * 1.5)).child(self.icon.large()),
         }
+    }
+}
+
+/// A small label of a thing of the person's own making, its icon in its
+/// colour on a tint of it: a tag on a record. Quieter than a [`Tile`] and
+/// read beside other text, so a row can carry several on its second line
+/// without growing.
+#[derive(IntoElement, Clone)]
+pub struct Pill {
+    icon: Option<gpui_kit::component::Icon>,
+    label: SharedString,
+    color: gpui_kit::Hsla,
+}
+
+impl Pill {
+    pub fn new(label: impl Into<SharedString>, color: gpui_kit::Hsla) -> Self {
+        Pill { icon: None, label: label.into(), color }
+    }
+
+    pub fn icon(mut self, icon: impl Into<gpui_kit::component::Icon>) -> Self {
+        self.icon = Some(icon.into());
+        self
+    }
+
+    /// What it says.
+    pub fn label(&self) -> &SharedString {
+        &self.label
+    }
+}
+
+impl RenderOnce for Pill {
+    fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
+        let touch = input_mode(cx) == InputMode::Touch;
+        let text = cx.colors().text;
+        div()
+            .flex_none()
+            .flex()
+            .items_center()
+            .gap(rems(0.25))
+            .h(rems(if touch { 1.25 } else { 1.125 }))
+            .px(rems(0.375))
+            .rounded(rems(0.375))
+            .bg(self.color.opacity(0.14))
+            .text_size(rems(0.6875))
+            .line_height(rems(1.))
+            .font_weight(FontWeight::MEDIUM)
+            .text_color(text.opacity(0.86))
+            .children(self.icon.map(|icon| icon.xsmall().text_color(self.color)))
+            .child(self.label)
     }
 }

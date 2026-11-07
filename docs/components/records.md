@@ -32,6 +32,7 @@ The owner sorts: it is told which column was pressed, keeps the order, and says 
 
 - `Column::grow(parts)` shares what the fixed columns leave by parts (the category 7, an id 3); without it each such column takes one part. `Column::muted()` draws a column in the secondary text colour (an id, a comment).
 - `Record::tile(icon, color)` is what the record is of: a category's icon in its colour.
+- `Record::pills([Pill])` are what the record is tagged with ([Pill](primitives.md)): in a table after the title cell's text, in a list row after the subtitle on its line. Neither grows for them; what does not fit is cut off at the row's end.
 - `Records::fill(&scroll)` fills what holds it and scrolls by itself, laying out only the rows in view (a `uniform_list`): a ledger of years of records. Give the [Screen](screen.md) `scrolls(false)`. The owner keeps the `RecordsScroll` and brings a record into view with `scroll.scroll_to_item(ix, ScrollStrategy::Nearest)`, as the keyboard moves the selection. On a finger the list's scroll is locked to its axis.
 - `Records::shared(Rc<Vec<Record>>)` takes records the owner keeps between frames.
 
@@ -39,4 +40,4 @@ money-manager's records: Up and Down move `selected`, Enter opens it, a press on
 
 ## Tests
 
-`tests/ui.rs`: `records_that_fill_the_page_lay_out_only_the_rows_in_view_in_both_skins` (a row in view is laid out, one far below is not, a press opens a row).
+`tests/ui.rs`: `records_that_fill_the_page_lay_out_only_the_rows_in_view_in_both_skins` (a row in view is laid out, one far below is not, a press opens a row), `a_record_with_pills_is_as_tall_as_one_without_in_both_skins`.

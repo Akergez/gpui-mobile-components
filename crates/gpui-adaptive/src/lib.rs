@@ -100,7 +100,7 @@ pub use note::Note;
 pub use notice::Notice;
 pub use palette::{ActivePalette, Palette};
 pub use popup::Popup;
-pub use prim::{Markdown, Meter, Surface, Text, Tile, TileSize};
+pub use prim::{Markdown, Meter, Pill, Surface, Text, Tile, TileSize};
 pub use records::{Column, ColumnRole, Record, Records, RecordsScroll};
 pub use scale::{ActiveScale, Scale};
 pub use screen::Screen;

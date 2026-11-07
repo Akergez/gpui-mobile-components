@@ -7,7 +7,7 @@
 //!
 //! Controlled: the owner keeps which are on and is told which was pressed.
 //! A chip may carry a dot of its thing's colour, faded while others are
-//! chosen and it is not.
+//! chosen and it is not, or its icon in that colour.
 
 use std::rc::Rc;
 
@@ -27,6 +27,7 @@ struct Chip {
     label: SharedString,
     on: bool,
     dot: Option<Hsla>,
+    icon: Option<(Icon, Hsla)>,
 }
 
 /// A row of filter chips, wrapping onto more rows as needed.
@@ -51,7 +52,7 @@ impl Chips {
     }
 
     pub fn chip(mut self, key: impl Into<SharedString>, label: impl Into<SharedString>, on: bool) -> Self {
-        self.chips.push(Chip { key: key.into(), label: label.into(), on, dot: None });
+        self.chips.push(Chip { key: key.into(), label: label.into(), on, dot: None, icon: None });
         self
     }
 
@@ -59,6 +60,15 @@ impl Chips {
     pub fn dot(mut self, color: Hsla) -> Self {
         if let Some(chip) = self.chips.last_mut() {
             chip.dot = Some(color);
+        }
+        self
+    }
+
+    /// The chip just added carries `icon` in `color`, in place of a dot: a
+    /// tag to put on a record, drawn as it is drawn on the record.
+    pub fn icon(mut self, icon: impl Into<Icon>, color: Hsla) -> Self {
+        if let Some(chip) = self.chips.last_mut() {
+            chip.icon = Some((icon.into(), color));
         }
         self
     }
@@ -84,7 +94,7 @@ impl RenderOnce for Chips {
         } else {
             (theme.primary.opacity(0.12), theme.primary, theme.foreground, theme.foreground, theme.border)
         };
-        let chip = |id: ElementId, label: SharedString, on: bool, dot: Option<Hsla>, key: Option<SharedString>| {
+        let chip = |id: ElementId, label: SharedString, on: bool, dot: Option<Hsla>, icon: Option<(Icon, Hsla)>, key: Option<SharedString>| {
             let on_toggle = self.on_toggle.clone();
             h_flex()
                 .id(id)
@@ -102,6 +112,7 @@ impl RenderOnce for Chips {
                 .when(!on, |chip| chip.border_color(border).text_color(off_fg))
                 .when(!touch && !on, |chip| chip.hover(|style| style.bg(theme.secondary_hover)))
                 .when(touch && on, |chip| chip.child(Icon::new(IconName::Check).xsmall()))
+                .when_some(icon.filter(|_| !(touch && on)), |chip, (icon, color)| chip.child(icon.xsmall().text_color(color)))
                 .children(dot.map(|color| {
                     let strength = if on || none_on { 1. } else { 0.35 };
                     div().flex_none().size(rems(0.625)).rounded_full().bg(color.opacity(strength))
@@ -114,11 +125,11 @@ impl RenderOnce for Chips {
                 })
                 .test_support()
         };
-        let all = self.all.clone().map(|label| chip((self.id.clone(), SharedString::from("all")).into(), label, none_on, None, None));
+        let all = self.all.clone().map(|label| chip((self.id.clone(), SharedString::from("all")).into(), label, none_on, None, None, None));
         let chips: Vec<_> = self
             .chips
             .iter()
-            .map(|c| chip((self.id.clone(), c.key.clone()).into(), c.label.clone(), c.on, c.dot, Some(c.key.clone())))
+            .map(|c| chip((self.id.clone(), c.key.clone()).into(), c.label.clone(), c.on, c.dot, c.icon.clone(), Some(c.key.clone())))
             .collect();
         h_flex().flex_wrap().gap(scale.space_s).children(all).children(chips)
     }

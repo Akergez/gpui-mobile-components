@@ -45,6 +45,7 @@ let header = if group == Group::NeedsYou { header.tone(Tone::Warning) } else { h
 list = list.section(header, run.iter().map(|item| session_row(item)));
 ```
 
+- `.pills([Pill])` puts [Pill](primitives.md)s after the subtitle, on its line (a record's tags); the row does not grow for them.
 - `.supporting(text)` is a third line under the subtitle: the last message, what went wrong. `.supporting_tone(Tone::Danger)` says it in the tone's colour with its icon.
 - `.signal(Some(Signal::Waiting(Tone::Warning)))` says what the row's state asks of the person: `Waiting(tone)` (an agent's question, a failure), `Busy` (something works on it now), `New` (unread). It is the stripe and the dot of aiddiction's inbox rows.
 
