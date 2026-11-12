@@ -55,7 +55,7 @@ An application whose own state says what is open (a conversation, a thread over 
 
 While the navigator is a stack and back goes somewhere, it holds a `gpui_android_glue::back` layer:
 
-- **The phone's back** (the button or the predictive gesture) pops the page. Partway through the gesture the page moves aside with the finger over the page it goes to (`back::preview`, with the page under drawn only while there is a gesture).
+- **The phone's back** (the button or the predictive gesture) pops the page. Partway through the gesture the page moves aside with the finger over the page it goes to (`back::preview`, with the page under drawn only while there is a gesture), and that page is drawn as it will be when it is on top: its own way up, and its section's navigation bar (`Navigator::bar`, from [`Destinations::bar`](destinations.md)) at its foot, moving with it.
 - **On a finger, a swipe to the right** anywhere across the page does the same (`swipe_back`), unless `Route::scrolls_sideways()` says the page has something that scrolls sideways (a diff, a board, a wide table).
 - **Up** in the [Screen](screen.md) does the same.
 

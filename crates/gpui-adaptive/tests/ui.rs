@@ -5,6 +5,7 @@
 
 use std::cell::Cell;
 use std::rc::Rc;
+use std::time::Duration;
 
 use gpui_adaptive::{
     AppFrame, Choice, ChoiceEvent, ChoiceOption, ChoiceState, Command, Destination, Destinations, InputMode,
@@ -15,8 +16,9 @@ use gpui_kit::base::TestSupportExt as _;
 use gpui_kit::prelude::*;
 use gpui_kit::test::TestWindowExt;
 use gpui_kit::{
-    AnyElement, AppContext, Bounds, Context, Entity, IntoElement, ParentElement, Render, SharedString, Styled,
-    TestAppContext, Window, WindowBounds, WindowOptions, AnyWindowHandle, div, px, size,
+    AnyElement, AppContext, Bounds, Context, Entity, IntoElement, ParentElement, PlatformInput, Render, SharedString,
+    Styled, TestAppContext, TouchEvent, TouchId, TouchPhase, Window, WindowBounds, WindowOptions, AnyWindowHandle, div,
+    point, px, size,
 };
 
 const PHONE: (f32, f32) = (400., 800.);
@@ -112,26 +114,27 @@ struct MailApp {
 }
 
 impl Render for MailApp {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let navigator = self.navigator.clone();
         let state = self.navigator.read(cx);
         let section = if matches!(state.top(), Mail::Settings) { "settings" } else { "inbox" };
-        let at_root = state.is_at_root();
+        let sections = Destinations::new("sections", section)
+            .destination(Destination::new("inbox", "Inbox", IconName::Inbox).count(2, true))
+            .destination(Destination::new("settings", "Settings", IconName::Settings).pinned())
+            .on_select({
+                let navigator = navigator.clone();
+                move |key, _, cx| {
+                    let route = if key == "settings" { Mail::Settings } else { Mail::Inbox };
+                    navigator.update(cx, |navigator, cx| navigator.replace_root(route, cx));
+                }
+            });
+        let bar = sections.bar(window, cx);
         let pages = Navigator::new("pages", &self.navigator, {
             let navigator = navigator.clone();
             move |route, page, window, cx| render_page(route, page, &navigator, window, cx)
-        });
-        AppFrame::new("Mail").edge_to_edge(true).child(
-            Destinations::new("sections", section)
-                .destination(Destination::new("inbox", "Inbox", IconName::Inbox).count(2, true))
-                .destination(Destination::new("settings", "Settings", IconName::Settings).pinned())
-                .on_select(move |key, _, cx| {
-                    let route = if key == "settings" { Mail::Settings } else { Mail::Inbox };
-                    navigator.update(cx, |navigator, cx| navigator.replace_root(route, cx));
-                })
-                .bar_visible(at_root)
-                .content(pages),
-        )
+        })
+        .bar(bar);
+        AppFrame::new("Mail").edge_to_edge(true).child(sections.content(pages))
     }
 }
 
@@ -1125,4 +1128,78 @@ fn a_switcher_is_on_the_page_in_both_skins(cx: &mut TestAppContext) {
             .unwrap();
         assert!(found, "{input:?}");
     }
+}
+
+/// A finger at (x, y) in `phase`, drawn in the frame it arrives in.
+fn touch(cx: &mut TestAppContext, handle: AnyWindowHandle, phase: TouchPhase, x: f32, y: f32) {
+    cx.update_window(handle, |_, window, cx| {
+        window.dispatch_event(
+            PlatformInput::Touch(TouchEvent {
+                id: TouchId(1),
+                phase,
+                position: point(px(x), px(y)),
+                predicted_position: None,
+                force: None,
+            }),
+            cx,
+        );
+        window.render_frame(cx);
+    })
+    .unwrap();
+    cx.executor().advance_clock(Duration::from_millis(16));
+}
+
+/// The compact window's navigation bar is the first page's foot: it moves
+/// with the page, so a gesture of back reveals it together with the page it
+/// goes to instead of leaving it to appear when the gesture has ended.
+#[gpui_kit::test]
+fn a_phone_page_carries_the_bar_at_its_foot_and_a_gesture_reveals_it_with_the_page(cx: &mut TestAppContext) {
+    let (handle, navigator) = open_mail(InputMode::Touch, PHONE, cx);
+    let resting = cx
+        .update_window(handle, |_, window, cx| {
+            window.render_frame(cx);
+            window.find("inbox").bounds()
+        })
+        .unwrap();
+    assert_eq!(f32::from(resting.left()), 0., "the inbox's own bar, in place");
+    assert!(f32::from(resting.top()) > 700., "at the foot of the window: {resting:?}");
+
+    // A page over the list has no bar of its own.
+    cx.update_window(handle, |_, window, cx| {
+        window.click("message-1", cx);
+        window.render_frame(cx);
+    })
+    .unwrap();
+    assert!(
+        cx.update_window(handle, |_, window, _| window.try_find("inbox").is_none()).unwrap(),
+        "the message covers the inbox and its bar"
+    );
+
+    // Part way back: the inbox under the finger carries its bar, moved with it.
+    touch(cx, handle, TouchPhase::Started, 60., 300.);
+    let mut dx = 0.;
+    for _ in 0..5 {
+        dx += 20.;
+        touch(cx, handle, TouchPhase::Moved, 60. + dx, 300.);
+    }
+    let under = cx
+        .update_window(handle, |_, window, cx| {
+            window.render_frame(cx);
+            window.find("inbox").bounds()
+        })
+        .unwrap();
+    assert!(f32::from(under.left()) < -20., "the bar went with the page under the finger: {under:?}");
+    assert_eq!(f32::from(under.bottom()), 800., "and is still at the foot of the window: {under:?}");
+
+    // The page comes back where it was, its bar with it.
+    navigator.update(cx, |navigator, cx| {
+        navigator.back(cx);
+    });
+    let back = cx
+        .update_window(handle, |_, window, cx| {
+            window.render_frame(cx);
+            window.find("inbox").bounds()
+        })
+        .unwrap();
+    assert_eq!(back, resting, "nothing of the page moves when the gesture ends");
 }

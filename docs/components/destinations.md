@@ -14,20 +14,24 @@
 |---|---|---|---|
 | ![](../images/desktop-lists.png) | ![](../images/medium-lists.png) | ![](../images/phone-lists.png) | ![](../images/tablet-lists.png) |
 
-The navigation bar shows only on a section's first page (`bar_visible(navigator.is_at_root())`). Deeper pages get the whole height, plus back. With the bar shown, the bar keeps the system's navigation-bar room and goes under the keyboard while the page rises above it. Without the bar, the page keeps that room itself (see [Insets](insets.md)). Use it inside an `AppFrame::edge_to_edge(true)`.
+The navigation bar belongs to a section's first page: it is the page's *foot* (`Destinations::bar(window, cx)`, given to `Navigator::bar`). Because the page draws it, the bar goes with the page — a gesture of back reveals it together with the page it goes to, rather than appearing after the gesture has ended — and it is never laid over a deeper page, which gets the whole height and back. With the bar, the bar keeps the system's navigation-bar room and goes under the keyboard while the page rises above it; a deeper page keeps that room itself (see [Insets](insets.md)). Use it inside an `AppFrame::edge_to_edge(true)`.
 
 ## API
 
 ```rust
-Destinations::new("sections", selected_key)
+let sections = Destinations::new("sections", selected_key)
     .header(server_switcher)                       // sidebar only
     .primary(Command::new("new-chat", "New chat").icon(IconName::Plus).action(NewChat))
     .destination(Destination::new("inbox", "Inbox", IconName::Inbox).count(waiting, true))
     .destination(Destination::new("projects", "Projects", IconName::Folder))
     .destination(Destination::new("settings", "Settings", IconName::Settings).pinned())
-    .on_select(move |key, _, cx| navigator.update(cx, |n, cx| n.replace_root(route_for(key), cx)))
-    .bar_visible(navigator.read(cx).is_at_root())
-    .content(Navigator::new("pages", &navigator, render_page))
+    .on_select(move |key, _, cx| navigator.update(cx, |n, cx| n.replace_root(route_for(key), cx)));
+
+// The bar is the page's foot: the compact window's navigation bar, drawn by
+// the navigator under the section's first page and moving with it.
+let bar = sections.bar(window, cx);
+let pages = Navigator::new("pages", &navigator, render_page).bar(bar);
+AppFrame::new("App").edge_to_edge(true).child(sections.content(pages))
 ```
 
 - `prefer_rail(true)`: a rail even where a sidebar fits. This is for an application whose sections' pages bring their own list column, as aiddiction's inbox, projects and settings do; a sidebar would be a second list beside it.

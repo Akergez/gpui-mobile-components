@@ -431,7 +431,7 @@ impl Render for FormFields {
 }
 
 impl Render for Shell {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let state = self.navigator.read(cx);
         let section: SharedString = match state.stack().first() {
             Some(Gallery::Input) => "input",
@@ -440,36 +440,36 @@ impl Render for Shell {
             _ => "lists",
         }
         .into();
-        let at_root = state.stack().len() == 1;
         let this = cx.entity();
         let navigator = self.navigator.clone();
-        let pages = Navigator::new("pages", &self.navigator, move |route, page, window, cx| {
-            this.update(cx, |shell, cx| shell.render_page(route, page, window, cx))
-        });
         let aiddiction = std::env::var("GALLERY_AIDDICTION").is_ok();
         let destinations = Destinations::new("sections", section)
             .prefer_rail(aiddiction)
             .when(aiddiction, |destinations| {
                 destinations.header(Avatar::new("server", "H").square().presence(Presence::Online))
+            })
+            .destination(Destination::new("lists", "Lists", IconName::Inbox).count(2, true))
+            .destination(Destination::new("input", "Input", Lucide::SquarePen))
+            .destination(Destination::new("records", "Records", Lucide::Table))
+            .destination(Destination::new("feedback", "Feedback", IconName::Bell).count(3, false))
+            .on_select(move |key, _, cx| {
+                let route = match key.as_ref() {
+                    "input" => Gallery::Input,
+                    "feedback" => Gallery::Feedback,
+                    "records" => Gallery::Records,
+                    _ => Gallery::Lists,
+                };
+                navigator.update(cx, |navigator, cx| navigator.replace_root(route, cx));
             });
-        AppFrame::new("gpui-adaptive gallery").edge_to_edge(true).title_bar(!aiddiction).child(
-            destinations
-                .destination(Destination::new("lists", "Lists", IconName::Inbox).count(2, true))
-                .destination(Destination::new("input", "Input", Lucide::SquarePen))
-                .destination(Destination::new("records", "Records", Lucide::Table))
-                .destination(Destination::new("feedback", "Feedback", IconName::Bell).count(3, false))
-                .on_select(move |key, _, cx| {
-                    let route = match key.as_ref() {
-                        "input" => Gallery::Input,
-                        "feedback" => Gallery::Feedback,
-                        "records" => Gallery::Records,
-                        _ => Gallery::Lists,
-                    };
-                    navigator.update(cx, |navigator, cx| navigator.replace_root(route, cx));
-                })
-                .bar_visible(at_root)
-                .content(pages),
-        )
+        let bar = destinations.bar(window, cx);
+        let pages = Navigator::new("pages", &self.navigator, move |route, page, window, cx| {
+            this.update(cx, |shell, cx| shell.render_page(route, page, window, cx))
+        })
+        .bar(bar);
+        AppFrame::new("gpui-adaptive gallery")
+            .edge_to_edge(true)
+            .title_bar(!aiddiction)
+            .child(destinations.content(pages))
     }
 }
 

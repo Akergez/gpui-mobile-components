@@ -21,6 +21,9 @@
 //!   phone's back gesture moves the page aside with the finger over the page
 //!   it goes to (predictive back), and on a finger a swipe to the right does
 //!   the same unless the page scrolls sideways ([`Route::scrolls_sideways`]).
+//!   The page under is drawn as it will be when it is on top — its own way
+//!   up, and its section's navigation bar at its foot ([`Navigator::bar`]) —
+//!   so nothing about it changes when the gesture ends.
 //!
 //! The state is a plain stack of routes, so a UI scenario can start on any
 //! page by building the stack it wants.
@@ -28,7 +31,7 @@
 use std::rc::Rc;
 use std::time::Duration;
 
-use gpui_kit::component::{ActiveTheme, h_flex};
+use gpui_kit::component::{ActiveTheme, h_flex, v_flex};
 use gpui_kit::prelude::*;
 use gpui_kit::{
     Animation, AnimationExt as _, AnyElement, App, Context, ElementId, Entity, EventEmitter,
@@ -36,7 +39,9 @@ use gpui_kit::{
 };
 
 use crate::command::Handler;
+use crate::destinations::Bar;
 use crate::env::{Env, InputMode, WidthClass};
+use crate::insets::Insets;
 use crate::scale::ActiveScale;
 
 /// A page of the application.
@@ -285,6 +290,7 @@ pub struct Navigator<R: Route> {
     state: Entity<NavigatorState<R>>,
     render_page: RenderPage<R>,
     resizable: Option<(WidthOf<R>, OnResize<R>)>,
+    bar: Option<Bar>,
 }
 
 impl<R: Route> Navigator<R> {
@@ -296,7 +302,21 @@ impl<R: Route> Navigator<R> {
         state: &Entity<NavigatorState<R>>,
         render_page: impl Fn(&R, Page, &mut Window, &mut App) -> AnyElement + 'static,
     ) -> Self {
-        Navigator { id: id.into(), state: state.clone(), render_page: Rc::new(render_page), resizable: None }
+        Navigator { id: id.into(), state: state.clone(), render_page: Rc::new(render_page), resizable: None, bar: None }
+    }
+
+    /// The compact window's navigation bar, from [`crate::Destinations::bar`]:
+    /// the foot of the section's first page, so that it goes with the page —
+    /// a gesture of back reveals it together with the page it goes to, and it
+    /// is never laid over the page in front. A page that is not its section's
+    /// first keeps clear of the system's bars and the keyboard itself; with a
+    /// bar, so does the first page above it.
+    ///
+    /// On a medium or expanded window the bar is not a page's foot: there is
+    /// a rail or a sidebar, which [`crate::Destinations`] draws.
+    pub fn bar(mut self, bar: Option<Bar>) -> Self {
+        self.bar = bar;
+        self
     }
 
     /// Lets the person size the columns that do not grow by dragging their
@@ -400,6 +420,14 @@ impl<R: Route> RenderOnce for Navigator<R> {
         let stacked = columns.len() == 1 && floating.is_none();
         let (generation, change) = (state.generation, state.change);
         let back_target = state.back_target();
+        let at_root = state.is_at_root();
+        let stack_len = state.stack().len();
+        // Whether the page a gesture reveals would be the first of its
+        // section once the gesture is done: on a compact window it carries
+        // its section's bar, even while it is still under the finger.
+        let reveals_root = stack_len <= 2 && back_target.as_ref().is_some_and(|target| target.companion().is_none());
+        // Whether that page will itself have back once the gesture is done.
+        let under_back = reveals_has_back(stack_len, back_target.as_ref());
         let gesture = self.state.update(cx, |navigator, cx| {
             navigator.sync_back(stacked, cx);
             let gesture = navigator.back.as_ref().and_then(|guard| guard.gesture(window, cx));
@@ -419,6 +447,7 @@ impl<R: Route> RenderOnce for Navigator<R> {
             return self.columns(columns, floating, up, window, cx);
         }
 
+        let insets = Insets::of(window);
         let has_back = back_target.is_some();
         let page = (self.render_page)(
             &top,
@@ -426,16 +455,45 @@ impl<R: Route> RenderOnce for Navigator<R> {
             window,
             cx,
         );
+        let page = page_slot(page, self.bar.as_ref(), at_root, insets);
         let page = transition(self.id.clone(), generation, change, env, page, cx);
-        // What back goes to is drawn only while a gesture shows it.
+        // What back goes to is drawn only while a gesture shows it: the page
+        // as it will be when it is on top, its own way up and its bar
+        // included.
         let under = gesture
             .and(back_target)
-            .map(|target| (self.render_page)(&target, Page { up: None, column: false }, window, cx));
+            .map(|target| {
+                let up = under_back.then(|| up.clone());
+                let page = (self.render_page)(&target, Page { up, column: false }, window, cx);
+                page_slot(page, self.bar.as_ref(), reveals_root, insets)
+            });
         gpui_android_glue::back::preview(div().id(self.id).size_full().child(page), gesture)
             .under(under)
             .swipe_back(env.is_touch() && has_back && !top.scrolls_sideways())
             .into_any_element()
     }
+}
+
+/// Whether the page a gesture of back is revealing will itself have
+/// somewhere to go back to once it is on top: `stack_len` pages now, one
+/// fewer after.
+fn reveals_has_back<R: Route>(stack_len: usize, target: Option<&R>) -> bool {
+    stack_len > 2 || target.is_some_and(|target| target.companion().is_some())
+}
+
+/// The page with the room it keeps at the bottom. A compact window's section
+/// first page carries its navigation bar at the foot — the bar is the page's
+/// own, so it moves and is revealed with it — and keeps clear of the keyboard
+/// over the bar; any other page keeps clear of the system's bars and the
+/// keyboard itself. Without a bar the page is as it is.
+fn page_slot(page: AnyElement, bar: Option<&Bar>, at_root: bool, insets: Insets) -> AnyElement {
+    let Some(bar) = bar else { return page };
+    let below = if at_root { insets.keyboard_over_bars() } else { insets.typing() };
+    v_flex()
+        .size_full()
+        .child(div().flex_1().min_h_0().pb(below).child(page))
+        .when(at_root, |slot| slot.child(bar.clone()))
+        .into_any_element()
 }
 
 impl<R: Route> Navigator<R> {
@@ -655,9 +713,20 @@ mod tests {
         });
     }
 
+    #[test]
+    fn the_page_a_gesture_reveals_keeps_the_way_up_it_will_have() {
+        // From a thread to its conversation: the conversation still goes
+        // back to the list under it.
+        assert!(reveals_has_back(3, Some(&Chat::Conversation)));
+        assert!(reveals_has_back(1, Some(&Chat::Conversation)));
+        // From a thread (or a conversation opened straight onto) to the
+        // list: the list is the first page of its section.
+        assert!(!reveals_has_back(2, Some(&Chat::List)));
+        assert!(!reveals_has_back(1, Some(&Chat::List)));
+    }
+
     #[gpui_kit::test]
-    fn back_at_the_end_of_a_gesture_does_not_bring_the_page_in_again(cx: &mut gpui_kit::TestAppContext) {
-        let navigator = cx.new(|_| NavigatorState::new(Mail::Inbox));
+    fn back_at_the_end_of_a_gesture_does_not_bring_the_page_in_again(cx: &mut gpui_kit::TestAppContext) {        let navigator = cx.new(|_| NavigatorState::new(Mail::Inbox));
         navigator.update(cx, |navigator, cx| {
             navigator.push(Mail::Message(1), cx);
             navigator.gesture_shown = true;

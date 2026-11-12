@@ -6,11 +6,18 @@
 //! | Medium   | an icon rail with tooltips       | a navigation rail, the primary on top   |
 //! | Expanded | a sidebar with labels and counts | a navigation rail with labels           |
 //!
-//! The navigation bar is only on a section's first page: deeper pages have
-//! the whole height, and back. The content is drawn beside the rail or
-//! above the bar, and kept clear of the system's navigation bar and the
-//! keyboard: the bar goes under the keyboard, the content stays above it.
-//! Use it inside an [`crate::AppFrame`] that is `edge_to_edge`.
+//! The navigation bar belongs to the page: it is the *foot* of a section's
+//! first page, taken from [`Destinations::bar`] and given to the
+//! [`crate::Navigator`], which draws it under that page and no other. So it
+//! moves with the page and a gesture of back reveals it with the page it
+//! goes to, rather than appearing once the gesture has ended; deeper pages
+//! have the whole height, and back.
+//!
+//! The content is drawn beside the rail or the sidebar; on a compact window
+//! the pages keep clear of the system's navigation bar and the keyboard
+//! themselves (the bar goes under the keyboard, the page stays above it; see
+//! [Insets](crate::insets)). Use it inside an [`crate::AppFrame`] that is
+//! `edge_to_edge`.
 //!
 //! Choosing a destination calls `on_select` with its key; the owner usually
 //! puts the section's root page in its [`crate::NavigatorState`].
@@ -83,7 +90,6 @@ pub struct Destinations {
     header: Option<AnyElement>,
     primary: Option<Command>,
     content: Option<AnyElement>,
-    bar_visible: bool,
     prefer_rail: bool,
 }
 
@@ -97,7 +103,6 @@ impl Destinations {
             header: None,
             primary: None,
             content: None,
-            bar_visible: true,
             prefer_rail: false,
         }
     }
@@ -141,11 +146,20 @@ impl Destinations {
         self
     }
 
-    /// Whether the compact window's navigation bar shows: on the section's
-    /// first page only, usually `navigator.is_at_root()`.
-    pub fn bar_visible(mut self, visible: bool) -> Self {
-        self.bar_visible = visible;
-        self
+    /// The navigation bar a compact window's section draws at the foot of
+    /// its first page, for [`crate::Navigator::bar`]. `None` where the window
+    /// has a rail or a sidebar: the bar is only a compact window's.
+    ///
+    /// The bar is the page's own, not the window's: the navigator draws it
+    /// under the page it belongs to, so a gesture of back reveals it with the
+    /// page it goes to and it never lies over the page in front.
+    pub fn bar(&self, window: &Window, cx: &App) -> Option<Bar> {
+        (Env::of(window, cx).width() == WidthClass::Compact).then(|| Bar {
+            id: self.id.clone(),
+            destinations: self.destinations.clone(),
+            selected: self.selected.clone(),
+            on_select: self.on_select.clone(),
+        })
     }
 
     fn select(&self, key: SharedString) -> impl Fn(&gpui_kit::ClickEvent, &mut Window, &mut App) + 'static {
@@ -155,38 +169,6 @@ impl Destinations {
                 on_select(&key, window, cx);
             }
         }
-    }
-
-    /// The navigation bar along the bottom: a cached part, the same from
-    /// frame to frame while a page scrolls above it.
-    fn render_bar(&self, env: Env, insets: Insets, window: &mut Window, cx: &mut App) -> AnyElement {
-        let palette = cx.palette();
-        let scale = cx.scale();
-        let theme = cx.theme();
-        let (background, border) = match env.input() {
-            InputMode::Touch => (palette.surface_container, palette.surface_container),
-            InputMode::Pointer => (theme.sidebar, theme.sidebar_border),
-        };
-        let height = scale.navigation_bar.to_pixels(window.rem_size()) + insets.bars;
-        let look = BarLook {
-            items: self
-                .destinations
-                .iter()
-                .map(|d| (d.key.clone(), d.label.clone(), d.count, d.urgent))
-                .collect(),
-            selected: self.selected.clone(),
-            height,
-            bars: insets.bars,
-            background,
-            border,
-            palette,
-        };
-        let handlers = BarHandlers {
-            icons: self.destinations.iter().map(|d| d.icon.clone()).collect(),
-            on_select: self.on_select.clone(),
-        };
-        let style = StyleRefinement::default().flex_none().w_full().h(height);
-        crate::cache::part((self.id.clone(), "bar"), look, handlers, draw_bar, style, window, cx)
     }
 
     fn render_rail(&mut self, env: Env, labels: bool, cx: &App) -> AnyElement {
@@ -315,18 +297,10 @@ impl RenderOnce for Destinations {
         let insets = Insets::of(window);
         let content = self.content.take().unwrap_or_else(|| div().into_any_element());
         match env.width() {
-            WidthClass::Compact => {
-                let bar = self.bar_visible.then(|| self.render_bar(env, insets, window, cx));
-                // With the bar, the bar keeps the system's room and goes under
-                // the keyboard; without it the page keeps the room itself.
-                let below = if self.bar_visible { insets.keyboard_over_bars() } else { insets.typing() };
-                v_flex()
-                    .id(self.id.clone())
-                    .size_full()
-                    .child(div().flex_1().min_h_0().relative().pb(below).child(content))
-                    .children(bar)
-                    .into_any_element()
-            }
+            // The bar is the first page's foot ([`Destinations::bar`], the
+            // navigator's), and the pages keep the bottom room themselves:
+            // they move, the bar moves with the page it belongs to.
+            WidthClass::Compact => div().id(self.id.clone()).size_full().child(content).into_any_element(),
             WidthClass::Medium => h_flex()
                 .id(self.id.clone())
                 .size_full()
@@ -347,6 +321,56 @@ impl RenderOnce for Destinations {
                     .into_any_element()
             }
         }
+    }
+}
+
+/// A compact window's navigation bar: the foot of a section's first page.
+///
+/// Taken from [`Destinations::bar`] and given to [`crate::Navigator::bar`],
+/// which draws it under the page it belongs to — so the bar goes with the
+/// page: a gesture of back reveals it together with the page it goes to,
+/// and it is never laid over the page in front. A cached view: the same from
+/// frame to frame while a page scrolls above it, drawn again only when what
+/// it shows changes.
+#[derive(Clone, IntoElement)]
+pub struct Bar {
+    id: ElementId,
+    destinations: Vec<Destination>,
+    selected: SharedString,
+    on_select: Option<OnSelect>,
+}
+
+impl RenderOnce for Bar {
+    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
+        let env = Env::of(window, cx);
+        let insets = Insets::of(window);
+        let palette = cx.palette();
+        let scale = cx.scale();
+        let theme = cx.theme();
+        let (background, border) = match env.input() {
+            InputMode::Touch => (palette.surface_container, palette.surface_container),
+            InputMode::Pointer => (theme.sidebar, theme.sidebar_border),
+        };
+        let height = scale.navigation_bar.to_pixels(window.rem_size()) + insets.bars;
+        let look = BarLook {
+            items: self
+                .destinations
+                .iter()
+                .map(|d| (d.key.clone(), d.label.clone(), d.count, d.urgent))
+                .collect(),
+            selected: self.selected.clone(),
+            height,
+            bars: insets.bars,
+            background,
+            border,
+            palette,
+        };
+        let handlers = BarHandlers {
+            icons: self.destinations.iter().map(|d| d.icon.clone()).collect(),
+            on_select: self.on_select.clone(),
+        };
+        let style = StyleRefinement::default().flex_none().w_full().h(height);
+        crate::cache::part((self.id, "bar"), look, handlers, draw_bar, style, window, cx)
     }
 }
 

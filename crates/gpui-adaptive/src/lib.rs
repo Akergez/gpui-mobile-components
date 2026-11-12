@@ -81,7 +81,7 @@ pub use command::{Command, CommandButton, CommandRole, Handler};
 pub use composer::{Composer, ComposerEvent, ComposerState, Suggestion};
 pub use confirm::Confirm;
 pub use date_field::{DateField, DateFieldEvent, DateFieldState};
-pub use destinations::{Destination, Destinations};
+pub use destinations::{Bar, Destination, Destinations};
 pub use dock::{Dock, DockPlace};
 pub use empty::Empty;
 pub use env::{Env, InputMode, WidthClass, input_mode, set_input_mode};
