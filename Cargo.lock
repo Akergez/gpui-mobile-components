@@ -2162,7 +2162,7 @@ dependencies = [
 
 [[package]]
 name = "gallery"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "chrono",
  "gpui-adaptive",
@@ -2356,7 +2356,7 @@ dependencies = [
 
 [[package]]
 name = "gpui-adaptive"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "chrono",
  "gpui-adaptive-colors",
@@ -2377,8 +2377,8 @@ dependencies = [
 
 [[package]]
 name = "gpui-android-glue"
-version = "0.4.8"
-source = "git+https://github.com/Akergez/gpui-android-glue?tag=v0.4.8#379006f303c7d9bd5ce0fdfff60a9f423207ef42"
+version = "0.4.9"
+source = "git+https://github.com/Akergez/gpui-android-glue?tag=v0.4.9#7f7ac3d15bc07f1e7ecfb44d0793e7210e3512c8"
 dependencies = [
  "android-activity",
  "android_logger",
@@ -2766,7 +2766,7 @@ dependencies = [
 [[package]]
 name = "gpui-pre-mobile"
 version = "0.1.0"
-source = "git+https://github.com/Akergez/gpui-mobile?rev=d924245f173b80ebc8bcc4da5568fc97d3c64c43#d924245f173b80ebc8bcc4da5568fc97d3c64c43"
+source = "git+https://github.com/Akergez/gpui-mobile?rev=d69470c6f6de0cc005797f8db0553082066eb857#d69470c6f6de0cc005797f8db0553082066eb857"
 dependencies = [
  "android-activity",
  "android_logger",
