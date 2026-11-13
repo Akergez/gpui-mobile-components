@@ -116,13 +116,20 @@ impl RenderOnce for AppFrame {
             gpui_android_glue::chrome::title_frame(content, frame, cx)
         };
         let bottom = if self.edge_to_edge { gpui_kit::Pixels::ZERO } else { insets.typing() };
-        v_flex()
+        let frame = v_flex()
             .size_full()
             .relative()
             .bg(background)
             .text_color(foreground)
             .child(top)
             .child(div().flex_1().min_h_0().relative().pb(bottom).children(self.content))
-            .children(layers::render(window, cx))
+            .children(layers::render(window, cx));
+        // The desktop names the weight its own text is drawn at; a frame with
+        // nothing more to say about it is drawn at that weight, and every
+        // part that does not choose one inherits it.
+        match gpui_android_glue::desktop_text(cx).and_then(|text| text.weight) {
+            Some(weight) => frame.font_weight(weight),
+            None => frame,
+        }
     }
 }
