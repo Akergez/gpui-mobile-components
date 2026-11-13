@@ -2162,7 +2162,7 @@ dependencies = [
 
 [[package]]
 name = "gallery"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "chrono",
  "gpui-adaptive",
@@ -2356,7 +2356,7 @@ dependencies = [
 
 [[package]]
 name = "gpui-adaptive"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "chrono",
  "gpui-adaptive-colors",
@@ -2377,8 +2377,8 @@ dependencies = [
 
 [[package]]
 name = "gpui-android-glue"
-version = "0.4.6"
-source = "git+https://github.com/Akergez/gpui-android-glue?tag=v0.4.6#21caa8360df21c8621458e6115efac9e5d74818b"
+version = "0.4.7"
+source = "git+https://github.com/Akergez/gpui-android-glue?tag=v0.4.7#0b811fcb4530509334a767e9fb9abe34e6511b9c"
 dependencies = [
  "android-activity",
  "android_logger",

@@ -228,7 +228,14 @@ impl<R: Route> NavigatorState<R> {
         } else {
             return false;
         }
-        self.changed(if self.gesture_shown { Change::Revealed } else { Change::Pop }, cx);
+        self.changed(
+            if self.gesture_shown || gpui_android_glue::back::finishing_shown() {
+                Change::Revealed
+            } else {
+                Change::Pop
+            },
+            cx,
+        );
         true
     }
 
