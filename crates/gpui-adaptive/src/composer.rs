@@ -252,7 +252,12 @@ impl Tool {
         match self {
             Tool::Command(command) => command.icon_button(env).into_any_element(),
             Tool::Menu { shown, options, chosen } => {
-                let button = Button::new(shown.id().clone()).ghost().xsmall().label(shown.label().clone()).dropdown_caret(true);
+                let button =
+                    Button::new(shown.id().clone()).ghost().xsmall().label(shown.label().clone()).dropdown_caret(true);
+                // The tools share the row with send: a long label (a model's
+                // name, say) is cut short with an ellipsis instead of
+                // pushing send off the card.
+                let button = button.min_w_0().max_w(rems(9.));
                 let button = match shown.icon_ref() {
                     Some(icon) => button.icon(icon.clone()),
                     None => button,
@@ -318,9 +323,17 @@ impl RenderOnce for Composer {
                     .pl(inset)
                     .pr(inset)
                     .pb(inset)
-                    .children(self.tools.iter().map(|tool| tool.button(env)))
-                    .children(hint.map(|hint| Text::small(hint).muted().truncate()))
-                    .child(div().flex_1())
+                    // Everything but send shares what is left of the row and
+                    // is clipped there; send itself is never pushed aside.
+                    .child(
+                        row()
+                            .flex_1()
+                            .min_w_0()
+                            .overflow_hidden()
+                            .gap(scale.space_xs)
+                            .children(self.tools.iter().map(|tool| tool.button(env)))
+                            .children(hint.map(|hint| Text::small(hint).muted().truncate())),
+                    )
                     .child(send.w(size).h(size).rounded_full()),
             )
     }
