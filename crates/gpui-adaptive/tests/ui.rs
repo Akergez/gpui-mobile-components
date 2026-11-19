@@ -942,6 +942,73 @@ fn a_fab_over_a_row_takes_the_press_alone(cx: &mut TestAppContext) {
     assert_eq!(opened.get(), 0, "the row under the FAB does not open");
 }
 
+// The page's second command: a small FAB over the primary one on a phone, an
+// ordinary button on a pointer.
+
+struct Stacked {
+    created: Rc<Cell<u32>>,
+    transferred: Rc<Cell<u32>>,
+}
+
+impl Render for Stacked {
+    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+        let (created, transferred) = (self.created.clone(), self.transferred.clone());
+        AppFrame::new("Stacked").child(
+            Screen::new("stacked", "Stacked")
+                .root(true)
+                .command(
+                    Command::new("new-row", "New row")
+                        .icon(IconName::Plus)
+                        .primary()
+                        .on_trigger(move |_, _| created.set(created.get() + 1)),
+                )
+                .secondary(
+                    Command::new("new-transfer", "New transfer")
+                        .icon(IconName::ArrowRight)
+                        .on_trigger(move |_, _| transferred.set(transferred.get() + 1)),
+                )
+                .content(div().child("Nothing yet")),
+        )
+    }
+}
+
+#[gpui_kit::test]
+fn a_small_fab_stacks_over_the_primary_one_on_a_phone(cx: &mut TestAppContext) {
+    setup(InputMode::Touch, cx);
+    let (created, transferred) = (Rc::new(Cell::new(0)), Rc::new(Cell::new(0)));
+    let shared = (created.clone(), transferred.clone());
+    let (handle, _) = open(PHONE, cx, move |_, _| Stacked { created: shared.0, transferred: shared.1 });
+    cx.update_window(handle, |_, window, cx| {
+        window.render_frame(cx);
+        let small = window.find("new-transfer").bounds();
+        let primary = window.find("new-row").bounds();
+        assert_eq!(small.right(), primary.right(), "both sit on the page's right edge");
+        assert!(small.bottom() < primary.top(), "the small FAB is over the primary one");
+        assert!(small.size.height < primary.size.height, "the small FAB is the smaller one");
+        window.click("new-transfer", cx);
+        window.click("new-row", cx);
+    })
+    .unwrap();
+    assert_eq!(transferred.get(), 1, "the small FAB runs its command");
+    assert_eq!(created.get(), 1, "the primary FAB still runs its own");
+}
+
+#[gpui_kit::test]
+fn a_secondary_command_is_a_button_on_a_pointer(cx: &mut TestAppContext) {
+    setup(InputMode::Pointer, cx);
+    let (created, transferred) = (Rc::new(Cell::new(0)), Rc::new(Cell::new(0)));
+    let shared = (created.clone(), transferred.clone());
+    let (handle, _) = open(DESKTOP, cx, move |_, _| Stacked { created: shared.0, transferred: shared.1 });
+    cx.update_window(handle, |_, window, cx| {
+        window.render_frame(cx);
+        window.click("new-transfer", cx);
+        window.click("new-row", cx);
+    })
+    .unwrap();
+    assert_eq!(transferred.get(), 1, "the button runs the second command");
+    assert_eq!(created.get(), 1, "the primary command keeps its button");
+}
+
 // Filter chips say which chip was pressed, and "All" as none.
 
 struct Filters {

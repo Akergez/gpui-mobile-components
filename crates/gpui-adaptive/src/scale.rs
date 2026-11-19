@@ -37,6 +37,8 @@ pub struct Scale {
     pub sidebar: Rems,
     /// The floating action button.
     pub fab: Rems,
+    /// The small floating action button, stacked over the FAB.
+    pub fab_small: Rems,
     /// Corners of buttons and fields.
     pub radius_control: Rems,
     /// Corners of cards and menus.
@@ -80,6 +82,7 @@ impl Scale {
             rail: rems(3.75),
             sidebar: rems(14.),
             fab: rems(3.5),
+            fab_small: rems(2.5),
             radius_control: rems(0.375),
             radius_container: rems(0.5),
             radius_sheet: rems(0.625),
@@ -113,6 +116,7 @@ impl Scale {
             rail: rems(5.),
             sidebar: rems(17.5),
             fab: rems(3.5),
+            fab_small: rems(2.5),
             radius_control: rems(1.25),
             radius_container: rems(0.75),
             radius_sheet: rems(1.75),

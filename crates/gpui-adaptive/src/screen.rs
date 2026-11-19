@@ -8,7 +8,8 @@
 //! **Touch**: a Material top app bar. The title is over the subtitle, at
 //! most two commands are icons, the rest are in a sheet behind "⋮", and the
 //! primary command is a floating action button over the content's corner,
-//! its icon alone. A root page has the large title.
+//! its icon alone. A root page has the large title. The page's secondary
+//! command is Material's small FAB, stacked over the primary one.
 //!
 //! The content is the page's one vertical scroll area, which the screen
 //! owns: locked to its axis for a finger. A page that scrolls in its own way
@@ -44,6 +45,7 @@ pub struct Screen {
     up: Option<Up>,
     root: bool,
     commands: Vec<Command>,
+    secondary: Option<Command>,
     banner: Option<AnyElement>,
     switcher: Option<crate::Menu>,
     content: Option<AnyElement>,
@@ -62,6 +64,7 @@ impl Screen {
             up: None,
             root: false,
             commands: Vec::new(),
+            secondary: None,
             banner: None,
             switcher: None,
             content: None,
@@ -131,6 +134,14 @@ impl Screen {
         self
     }
 
+    /// The page's second action. **Touch**: Material's small FAB, stacked
+    /// over the primary one in the content's corner. **Pointer**: an
+    /// ordinary command button beside the others.
+    pub fn secondary(mut self, command: Command) -> Self {
+        self.secondary = Some(command);
+        self
+    }
+
     /// A standing state of the page under the bar: a [`crate::Banner`].
     pub fn banner(mut self, banner: Option<impl IntoElement>) -> Self {
         self.banner = banner.map(|banner| banner.into_any_element());
@@ -183,7 +194,10 @@ impl Screen {
         let theme = cx.theme();
         let (border, muted) = (theme.border, theme.muted_foreground);
         let scale = cx.scale();
-        let (primary, shown, overflow) = self.split();
+        let (primary, mut shown, overflow) = self.split();
+        if let Some(secondary) = self.secondary.take() {
+            shown.insert(0, secondary);
+        }
         let roomy = env.width() == WidthClass::Expanded && !self.column;
         let up = self.up.clone().map(|up| {
             Button::new("up")
@@ -322,7 +336,24 @@ impl Screen {
         let handlers = HeaderHandlers { shown, overflow, up: self.up.clone(), switcher, env };
         let style = gpui_kit::StyleRefinement::default().flex_none().w_full().h(height);
         let header = crate::cache::part((self.id.clone(), "header"), look, handlers, draw_header, style, window, cx);
-        let fab = primary.map(|command| fab(&command, cx));
+        let primary_fab = primary.map(|command| fab(&command, cx));
+        let small_fab = self.secondary.take().map(|command| small_fab(&command, cx));
+        // Material stacks the small FAB over the regular one, both on the
+        // content's right corner, one above the other.
+        let fabs = (primary_fab.is_some() || small_fab.is_some()).then(|| {
+            div()
+                .absolute()
+                .right_4()
+                .bottom_4()
+                .flex()
+                .flex_col()
+                .items_end()
+                .gap_4()
+                .occlude()
+                .children(small_fab)
+                .children(primary_fab)
+                .into_any_element()
+        });
         let content = self.render_content(env);
         // A desktop window drawn in the touch skin (a preview) still needs its
         // controls; a phone has none.
@@ -336,7 +367,7 @@ impl Screen {
             .text_color(palette.on_surface)
             .child(header)
             .children(self.banner)
-            .child(div().flex_1().min_h_0().relative().child(content).children(fab))
+            .child(div().flex_1().min_h_0().relative().child(content).children(fabs))
             .into_any_element()
     }
 }
@@ -361,9 +392,6 @@ fn fab(command: &Command, cx: &App) -> AnyElement {
     let chosen = command.clone();
     div()
         .id(command.id().clone())
-        .absolute()
-        .right_4()
-        .bottom_4()
         .h(scale.fab)
         .min_w(scale.fab)
         .px_4()
@@ -384,6 +412,39 @@ fn fab(command: &Command, cx: &App) -> AnyElement {
         .children(command.icon_ref().cloned().map(|icon| icon.large()))
         .when(command.icon_ref().is_none(), |fab| {
             fab.child(div().font_weight(FontWeight::SEMIBOLD).child(command.label().clone()))
+        })
+        .on_click(move |_, window, cx| chosen.run(window, cx))
+        .test_support()
+        .into_any_element()
+}
+
+/// Material's small floating action button: 40 dp over the regular one in
+/// the secondary container colour, for the page's second action. Its icon
+/// alone; the label only when it has no icon.
+fn small_fab(command: &Command, cx: &App) -> AnyElement {
+    let palette = cx.palette();
+    let scale = cx.scale();
+    let chosen = command.clone();
+    div()
+        .id(command.id().clone())
+        .h(scale.fab_small)
+        .min_w(scale.fab_small)
+        .px_3()
+        .gap_2()
+        .flex()
+        .items_center()
+        .justify_center()
+        .rounded(gpui_kit::rems(0.75))
+        .bg(palette.secondary_container)
+        .text_color(palette.on_secondary_container)
+        .shadow_md()
+        .cursor_pointer()
+        .occlude()
+        .when(command.is_disabled(), |fab| fab.opacity(0.4))
+        .active(move |style| style.opacity(0.88))
+        .children(command.icon_ref().cloned().map(|icon| icon.large()))
+        .when(command.icon_ref().is_none(), |fab| {
+            fab.child(div().text_size(scale.small).font_weight(FontWeight::SEMIBOLD).child(command.label().clone()))
         })
         .on_click(move |_, window, cx| chosen.run(window, cx))
         .test_support()

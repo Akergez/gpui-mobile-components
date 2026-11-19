@@ -12,6 +12,7 @@
 | Commands | buttons with labels on an Expanded window, icon buttons with tooltips otherwise or in a column | at most two icons; the rest behind ⋮ in a sheet |
 | Overflow and destructive | ⋯ dropdown menu with key bindings | in the ⋮ sheet, destructive last |
 | Primary | the primary button at the end of the bar | a FAB in the content's corner, its icon alone; a press on it is its alone, never the row's under it |
+| Secondary | an ordinary button beside the others | a small FAB stacked over the primary one, in the secondary container colour |
 | Content | `overflow_y_scrollbar()` | `overflow_y_scroll().lock_scroll_axis()` |
 
 | Pointer | Touch |
@@ -26,6 +27,7 @@ Screen::new("project", project.name())
     .page(&page)                           // up + column, from the Navigator
     .root(navigator.is_at_root())
     .command(Command::new("new-task", "New task").icon(IconName::Plus).primary().action(NewTask))
+    .secondary(Command::new("new-transfer", "New transfer").icon(IconName::ArrowRight).action(NewTransfer))
     .command(Command::new("review", "Review").icon(IconName::FileDiff).action(OpenReview))
     .command(Command::new("rename", "Rename…").overflow().action(Rename))
     .banner(offline.then(|| Banner::new("offline", "Server offline").tone(Tone::Warning)))
@@ -33,6 +35,7 @@ Screen::new("project", project.name())
 ```
 
 - `.switcher(menu)` is what the page is about and the way to another: money-manager's account, a [Menu](menu.md) that is a `choice`. On a pointer it stands in the bar after the title; on a finger, under a root page's large title as a line of text with a caret on the title's edge (no outline: it is not a second heading), and in the app bar after the title otherwise.
+- `.secondary(command)` is the page's second action. On a finger it is Material's small FAB (40 dp, the secondary container colour), stacked over the primary FAB in the content's corner; on a pointer it is an ordinary command button beside the others.
 - `.page(&page)` takes the way up and whether the page is a column from the [Navigator](navigator.md). `.up(Option<..>)` sets the way up by hand.
 - `.in_title_bar(true)` draws the page's bar as the window's title bar, as aiddiction does: one row with the window controls, rather than a title bar with the page's bar under it. Use it with `AppFrame::title_bar(false)`. A page shown as a column keeps its bar in the column. A phone in the touch skin draws its page from the top of the window, the page's surface behind the status bar and its header under it, and a desktop preview of the touch skin gets an empty title bar for the window controls. On macOS the traffic lights sit at the left of the page's bar, not at the window's corner, when the page is beside a rail.
 - `.status(Some(("Needs you".into(), Signal::Waiting(Tone::Warning))))` says what the page's subject is doing now. On a pointer it is a tinted pill after the title, with the signal's dot or spinner; on a finger it is not shown, since the page itself says it (the question's card, the stop button).
@@ -43,7 +46,7 @@ Screen::new("project", project.name())
 
 ## Rules
 
-- One primary command per page at most. It is the page's default commitment, not its most frequent action.
+- One primary command per page at most. It is the page's default commitment, not its most frequent action. The secondary command is the one that is close behind it: common enough to sit on the page, not the commitment the page is for.
 - Inside a Screen, do not nest another vertical scroll area of the same axis.
 
 ## Replaces
@@ -52,4 +55,4 @@ aiddiction `shell.rs` `render_screen` and `bar_actions`; money-manager `shell/ch
 
 ## Tests
 
-`tests/ui.rs`: `a_screen_can_be_the_window_title_bar`, `the_primary_command_is_a_button_that_runs_on_a_pointer`, `the_primary_command_is_a_fab_that_runs_on_a_phone`, `a_fab_over_a_row_takes_the_press_alone` and `a_switcher_is_on_the_page_in_both_skins`.
+`tests/ui.rs`: `a_screen_can_be_the_window_title_bar`, `the_primary_command_is_a_button_that_runs_on_a_pointer`, `the_primary_command_is_a_fab_that_runs_on_a_phone`, `a_fab_over_a_row_takes_the_press_alone`, `a_small_fab_stacks_over_the_primary_one_on_a_phone`, `a_secondary_command_is_a_button_on_a_pointer` and `a_switcher_is_on_the_page_in_both_skins`.
