@@ -390,12 +390,15 @@ fn fab(command: &Command, cx: &App) -> AnyElement {
     let palette = cx.palette();
     let scale = cx.scale();
     let chosen = command.clone();
+    let icon = command.icon_ref().cloned();
+    let labelled = icon.is_none();
     div()
         .id(command.id().clone())
         .h(scale.fab)
         .min_w(scale.fab)
-        .px_4()
-        .gap_3()
+        // A FAB is a square with its icon in the middle of it: the padding
+        // and the gap are for a label, which is the one thing that widens it.
+        .when(labelled, |fab| fab.px_4().gap_3())
         .flex()
         .items_center()
         .justify_center()
@@ -409,8 +412,8 @@ fn fab(command: &Command, cx: &App) -> AnyElement {
         .occlude()
         .when(command.is_disabled(), |fab| fab.opacity(0.4))
         .active(move |style| style.opacity(0.88))
-        .children(command.icon_ref().cloned().map(|icon| icon.large()))
-        .when(command.icon_ref().is_none(), |fab| {
+        .children(icon.map(|icon| icon.large()))
+        .when(labelled, |fab| {
             fab.child(div().font_weight(FontWeight::SEMIBOLD).child(command.label().clone()))
         })
         .on_click(move |_, window, cx| chosen.run(window, cx))
@@ -425,12 +428,15 @@ fn small_fab(command: &Command, cx: &App) -> AnyElement {
     let palette = cx.palette();
     let scale = cx.scale();
     let chosen = command.clone();
+    let icon = command.icon_ref().cloned();
+    let labelled = icon.is_none();
     div()
         .id(command.id().clone())
         .h(scale.fab_small)
         .min_w(scale.fab_small)
-        .px_3()
-        .gap_2()
+        // Square, as the regular one: its icon alone leaves it its height
+        // wide, and only a label makes it wider.
+        .when(labelled, |fab| fab.px_3().gap_2())
         .flex()
         .items_center()
         .justify_center()
@@ -442,8 +448,8 @@ fn small_fab(command: &Command, cx: &App) -> AnyElement {
         .occlude()
         .when(command.is_disabled(), |fab| fab.opacity(0.4))
         .active(move |style| style.opacity(0.88))
-        .children(command.icon_ref().cloned().map(|icon| icon.large()))
-        .when(command.icon_ref().is_none(), |fab| {
+        .children(icon.map(|icon| icon.large()))
+        .when(labelled, |fab| {
             fab.child(div().text_size(scale.small).font_weight(FontWeight::SEMIBOLD).child(command.label().clone()))
         })
         .on_click(move |_, window, cx| chosen.run(window, cx))

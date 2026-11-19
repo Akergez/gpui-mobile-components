@@ -91,6 +91,25 @@ fn the_primary_command_is_a_fab_that_runs_on_a_phone(cx: &mut TestAppContext) {
     primary_command_runs(InputMode::Touch, PHONE, cx);
 }
 
+#[gpui_kit::test]
+fn a_fab_is_square_whatever_its_icon_is(cx: &mut TestAppContext) {
+    setup(InputMode::Touch, cx);
+    let (created, transferred) = (Rc::new(Cell::new(0)), Rc::new(Cell::new(0)));
+    let shared = (created.clone(), transferred.clone());
+    let (handle, _) = open(PHONE, cx, move |_, _| Stacked { created: shared.0, transferred: shared.1 });
+    cx.update_window(handle, |_, window, cx| {
+        window.render_frame(cx);
+        for id in ["new-row", "new-transfer"] {
+            let fab = window.find(id).bounds();
+            let (w, h) = (f32::from(fab.size.width), f32::from(fab.size.height));
+            // Not a rectangle: the padding a label would need stays off the
+            // sides of an icon.
+            assert!((w - h).abs() < 1.0, "{id} is {w} wide and {h} high");
+        }
+    })
+    .unwrap();
+}
+
 // Destinations and a navigator: choose a section, open a page, go back.
 
 #[derive(Clone, Debug, PartialEq)]
