@@ -13,6 +13,12 @@
 //! - [`tooltip`], [`spinner`], [`rem_size`];
 //! - [`Text`], [`Markdown`], [`Meter`], [`Tile`], [`Pill`].
 
+mod collection;
+pub use self::collection::{
+    HorizontalScroll, OffsetSpring, PanSample, SelectableSurface, VerticalListState,
+    ViewportBounds, touch_pan, translated_layer, unread_mark,
+};
+
 use std::sync::Arc;
 
 use gpui_kit::base::InteractiveElementExt as _;
