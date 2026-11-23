@@ -171,7 +171,7 @@ impl Destinations {
         }
     }
 
-    fn render_rail(&mut self, env: Env, labels: bool, cx: &App) -> AnyElement {
+    fn render_rail(&mut self, env: Env, labels: bool, insets: Insets, window: &Window, cx: &App) -> AnyElement {
         let header = self.header.take();
         let palette = cx.palette();
         let scale = cx.scale();
@@ -230,13 +230,15 @@ impl Destinations {
             }
         });
         let header_gap = header.is_some().then(|| div().w(rems(1.5)).h_px().bg(border));
+        let padding = rems(0.75).to_pixels(window.rem_size());
         v_flex()
             .flex_none()
             .w(scale.rail)
             .h_full()
             .items_center()
             .gap_3()
-            .py_3()
+            .pt(padding + insets.top)
+            .pb(padding + insets.bars)
             .bg(rail_bg)
             .border_r_1()
             .border_color(border)
@@ -304,13 +306,13 @@ impl RenderOnce for Destinations {
             WidthClass::Medium => h_flex()
                 .id(self.id.clone())
                 .size_full()
-                .child(self.render_rail(env, false, cx))
+                .child(self.render_rail(env, false, insets, window, cx))
                 .child(div().flex_1().min_w_0().h_full().pb(insets.typing()).child(content))
                 .into_any_element(),
             WidthClass::Expanded => {
                 let side = match (env.is_touch(), self.prefer_rail) {
-                    (true, _) => self.render_rail(env, true, cx),
-                    (false, true) => self.render_rail(env, false, cx),
+                    (true, _) => self.render_rail(env, true, insets, window, cx),
+                    (false, true) => self.render_rail(env, false, insets, window, cx),
                     (false, false) => self.render_sidebar(env, cx),
                 };
                 h_flex()
